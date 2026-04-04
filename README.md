@@ -247,6 +247,7 @@ The app loads environment variables from `.env` and process environment.
 | `COINONE_CLI_TIMEOUT_MS` | Timeout for each local CLI invocation | `15000` |
 | `COINONE_CLI_BASE_URL` | Optional Coinone-compatible base URL for mocks/proxies | empty |
 | `SELECTION_MODE` | Asset selection strategy: `allowlist` or `auto` | `allowlist` |
+| `RISK_PROFILE` | High-level risk mode: `conservative`, `balanced`, or `aggressive` | `balanced` |
 | `TRADE_TARGETS` | Comma-separated assets used in `allowlist` mode | empty |
 | `AUTO_SELECTION_UNIVERSE` | Comma-separated candidate assets for `auto` mode | empty |
 | `MAX_SELECTED_ASSETS` | Maximum assets selected in `auto` mode | `5` |
@@ -254,16 +255,16 @@ The app loads environment variables from `.env` and process environment.
 | `DEFAULT_STRATEGY_PROFILE` | Fallback strategy profile for non-overridden assets: `default` or `stablecoin` | `default` |
 | `STABLECOIN_TARGETS` | Assets that automatically use the `stablecoin` profile unless overridden | `USDC,USDT` |
 | `STRATEGY_PROFILE_OVERRIDES` | Comma-separated `TARGET:PROFILE` mappings such as `USDT:default` | empty |
-| `MAX_ORDER_KRW` | Hard cap for one recommended buy order value | `100000` |
-| `MAX_POSITION_PER_ASSET_KRW` | Hard cap for one asset's simulated KRW exposure | `250000` |
-| `MAX_DAILY_BUY_KRW` | Hard cap for total completed buy value per UTC day before more buys are blocked | `100000` |
-| `MAX_TRADES_PER_DAY` | Hard cap for total completed trades per UTC day before more buys are blocked | `2` |
-| `MAX_OPEN_POSITIONS` | Hard cap for simultaneously held non-zero positions before new buys are blocked | `3` |
-| `MAX_PORTFOLIO_EXPOSURE_PCT` | Hard cap for portfolio exposure allocated to held positions before new buys are blocked | `0.6` |
-| `MIN_CASH_RESERVE_KRW` | KRW cash that must remain untouched before a buy recommendation is allowed | `50000` |
-| `COOLDOWN_MINUTES` | Minimum minutes after a completed order before another recommendation on that target | `180` |
-| `BUY_FRACTION_OF_CASH` | Fraction of spendable KRW cash used when sizing a buy recommendation | `0.25` |
-| `SELL_FRACTION_OF_POSITION` | Fraction of the held position used when sizing a sell recommendation | `0.5` |
+| `MAX_ORDER_KRW` | Optional override for one recommended buy order value cap | derived from `RISK_PROFILE` |
+| `MAX_POSITION_PER_ASSET_KRW` | Optional override for one asset's KRW exposure cap | derived from `RISK_PROFILE` |
+| `MAX_DAILY_BUY_KRW` | Optional override for total completed buy value cap per UTC day | derived from `RISK_PROFILE` |
+| `MAX_TRADES_PER_DAY` | Optional override for total completed trades per UTC day | derived from `RISK_PROFILE` |
+| `MAX_OPEN_POSITIONS` | Optional override for simultaneously held positions | derived from `RISK_PROFILE` |
+| `MAX_PORTFOLIO_EXPOSURE_PCT` | Optional override for portfolio exposure cap | derived from `RISK_PROFILE` |
+| `MIN_CASH_RESERVE_KRW` | Optional override for KRW cash reserve | derived from `RISK_PROFILE` |
+| `COOLDOWN_MINUTES` | Optional override for per-target cooldown | derived from `RISK_PROFILE` |
+| `BUY_FRACTION_OF_CASH` | Optional override for buy sizing fraction | derived from `RISK_PROFILE` |
+| `SELL_FRACTION_OF_POSITION` | Optional override for sell sizing fraction | derived from `RISK_PROFILE` |
 | `AGENT_DECISION_PROVIDER` | Agent provider implementation used by `agent:decision`: `mock` or `openai-compatible` | `mock` |
 | `AGENT_DECISION_OUTPUT_DIR` | Output directory for normalized snapshot, decision, and state files | `artifacts/agent-decision` |
 | `EXECUTION_PREVIEW_OUTPUT_DIR` | Output directory for persisted execution-preview artifacts | `artifacts/execution-preview` |
@@ -298,6 +299,9 @@ The app loads environment variables from `.env` and process environment.
 
 ## Decision behavior
 
+- 기본 전략은 **분할 매수 / 분할 매도**입니다. 한 번에 전량 매수/매도하지 않고, 잔고·보유 수량·최근 체결을 함께 보고 보수적으로 나눠서 판단합니다.
+- `RISK_PROFILE=conservative|balanced|aggressive`는 주문금액, 현금 보존, 거래 횟수, 보유 포지션 수 같은 기본 안전 기준을 자동으로 정합니다.
+- 세부 숫자 설정은 모두 optional override입니다. 비워두면 `RISK_PROFILE` 기준값을 사용합니다.
 - `default` profile: keeps the existing conservative behavior, allowing capped buys when flat and capped sells when a held position reaches the take-profit or stop-loss band.
 - `stablecoin` profile: auto-applies to `USDC` and `USDT` unless overridden, halves per-buy sizing, blocks sells, and only accumulates while daily trade and buy caps still have room.
 - `buy`: only when there is no current position, available KRW remains above `MIN_CASH_RESERVE_KRW`, sizing stays within `MAX_ORDER_KRW`, `MAX_POSITION_PER_ASSET_KRW`, `MAX_DAILY_BUY_KRW`, `MAX_TRADES_PER_DAY`, `MAX_OPEN_POSITIONS`, and `MAX_PORTFOLIO_EXPOSURE_PCT`, and the target is outside the cooldown window.
@@ -328,6 +332,7 @@ npm install
 npm run coinone:install
 npm run coinone:doctor
 npm run build
+RISK_PROFILE=balanced npm run trade:once
 MARKET_DATA_MODE=mock npm run agent:decision
 MARKET_DATA_MODE=mock npm run report:agent-trade-run
 MARKET_DATA_MODE=mock AGENT_DECISION_PROVIDER=openai-compatible AGENT_PROVIDER_ENDPOINT=http://127.0.0.1:4010/v1/chat/completions AGENT_PROVIDER_API_KEY=test-key AGENT_PROVIDER_MODEL=stub-model npm run agent:decision
@@ -380,3 +385,21 @@ npm run trade:once
 ```
 
 This still does not place orders; it only allows `coinone --json auth status`, `coinone --json balances list`, and `coinone --json orders completed` to inform the decision.
+
+### Recommended minimum `.env`
+
+For most users, these are enough:
+
+```bash
+DRY_RUN=true
+ENABLE_LIVE_TRADING=false
+SELECTION_MODE=allowlist
+TRADE_TARGETS=USDC
+RISK_PROFILE=balanced
+COINONE_ACCESS_TOKEN=...
+COINONE_SECRET_KEY=...
+SLACK_WEBHOOK_URL=...
+GITHUB_REPOSITORY=owner/repo
+```
+
+Everything else in `.env.example` is optional or advanced.

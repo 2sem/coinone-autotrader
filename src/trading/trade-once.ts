@@ -101,6 +101,7 @@ export interface TradeOnceResult {
   availableMarketCount: number;
   riskControls: AppConfig["riskControls"];
   strategyProfiles: {
+    riskProfile: AppConfig["riskProfile"];
     defaultProfile: StrategyProfileName;
     stablecoinTargets: string[];
     overrides: Record<string, StrategyProfileName>;
@@ -169,6 +170,7 @@ export async function runTradeOnce(config: AppConfig): Promise<TradeOnceResult> 
     availableMarketCount: marketSnapshot.markets.length,
     riskControls: config.riskControls,
     strategyProfiles: {
+      riskProfile: config.riskProfile,
       defaultProfile: config.defaultStrategyProfile,
       stablecoinTargets: config.stablecoinTargets,
       overrides: config.strategyProfileOverrides
@@ -189,7 +191,7 @@ export async function runTradeOnce(config: AppConfig): Promise<TradeOnceResult> 
       selectedTickers.length === 0
         ? "No selected ticker data is available for this dry-run plan."
         : `Included ${selectedTickers.length} selected ticker snapshots from ${marketSnapshot.source} data.`,
-      `Strategy profiles enabled: default=${config.defaultStrategyProfile}; auto-stablecoin targets=${config.stablecoinTargets.join(", ") || "none"}.`,
+      `Risk profile=${config.riskProfile}; strategy profiles enabled: default=${config.defaultStrategyProfile}; auto-stablecoin targets=${config.stablecoinTargets.join(", ") || "none"}.`,
       `Daily buy cap MAX_DAILY_BUY_KRW=${config.riskControls.maxDailyBuyKrw} and trade cap MAX_TRADES_PER_DAY=${config.riskControls.maxTradesPerDay} are enforced from completed-order history when account reads are available.`,
       `Portfolio caps: MAX_OPEN_POSITIONS=${config.riskControls.maxOpenPositions}, MAX_PORTFOLIO_EXPOSURE_PCT=${formatPercent(config.riskControls.maxPortfolioExposurePct)}.`,
       config.enableLiveTrading

@@ -67,6 +67,7 @@ function buildIssueBody(kind: ReportKind, result: TradeOnceResult, config: AppCo
     : "| 없음 | - | 생성된 결정이 없습니다. | - | - | - |";
   const accountSummary = buildAccountSummary(result);
   const strategySummary = [
+    `운용 성향 ${localizeRiskProfile(result.strategyProfiles.riskProfile)}`,
     `기본 프로필 ${localizeStrategyProfile(result.strategyProfiles.defaultProfile)}`,
     `스테이블코인 ${result.strategyProfiles.stablecoinTargets.join(", ") || "없음"}`
   ].join(" / ");
@@ -123,6 +124,18 @@ function buildDecisionNote(localized: ReturnType<typeof localizeTradeDecisionFor
 
 function localizeStrategyProfile(profile: TradeOnceResult["strategyProfiles"]["defaultProfile"]): string {
   return profile === "default" ? "기본" : "스테이블코인";
+}
+
+function localizeRiskProfile(profile: TradeOnceResult["strategyProfiles"]["riskProfile"]): string {
+  if (profile === "conservative") {
+    return "보수형";
+  }
+
+  if (profile === "aggressive") {
+    return "공격형";
+  }
+
+  return "균형형";
 }
 
 function buildAccountSummary(result: TradeOnceResult): string {

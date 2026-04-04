@@ -5,6 +5,7 @@ loadDotEnv();
 export type SelectionMode = "allowlist" | "auto";
 export type MarketDataMode = "auto" | "live" | "mock";
 export type StrategyProfileName = "default" | "stablecoin";
+export type RiskProfileName = "conservative" | "balanced" | "aggressive";
 
 export interface AppConfig {
   dryRun: boolean;
@@ -17,6 +18,7 @@ export interface AppConfig {
   coinoneCliTimeoutMs: number;
   coinoneCliBaseUrl?: string;
   selectionMode: SelectionMode;
+  riskProfile: RiskProfileName;
   tradeTargets: string[];
   autoSelectionUniverse: string[];
   maxSelectedAssets: number;
@@ -63,6 +65,45 @@ export interface RiskControls {
   maxPortfolioExposurePct: number;
 }
 
+const RISK_PROFILE_DEFAULTS: Record<RiskProfileName, RiskControls> = {
+  conservative: {
+    maxOrderKrw: 50_000,
+    maxPositionPerAssetKrw: 150_000,
+    minCashReserveKrw: 200_000,
+    cooldownMinutes: 360,
+    buyFractionOfCash: 0.1,
+    sellFractionOfPosition: 0.25,
+    maxDailyBuyKrw: 100_000,
+    maxTradesPerDay: 1,
+    maxOpenPositions: 2,
+    maxPortfolioExposurePct: 0.3
+  },
+  balanced: {
+    maxOrderKrw: 100_000,
+    maxPositionPerAssetKrw: 250_000,
+    minCashReserveKrw: 100_000,
+    cooldownMinutes: 180,
+    buyFractionOfCash: 0.25,
+    sellFractionOfPosition: 0.5,
+    maxDailyBuyKrw: 200_000,
+    maxTradesPerDay: 2,
+    maxOpenPositions: 3,
+    maxPortfolioExposurePct: 0.5
+  },
+  aggressive: {
+    maxOrderKrw: 200_000,
+    maxPositionPerAssetKrw: 400_000,
+    minCashReserveKrw: 50_000,
+    cooldownMinutes: 60,
+    buyFractionOfCash: 0.4,
+    sellFractionOfPosition: 0.75,
+    maxDailyBuyKrw: 400_000,
+    maxTradesPerDay: 4,
+    maxOpenPositions: 5,
+    maxPortfolioExposurePct: 0.7
+  }
+};
+
 export interface SlackNotificationPolicy {
   routinePreview: boolean;
   routineDryRun: boolean;
@@ -81,6 +122,8 @@ export interface GitHubRepository {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const selectionMode = parseSelectionMode(env.SELECTION_MODE);
+  const riskProfile = parseRiskProfile(env.RISK_PROFILE);
+  const profileDefaults = RISK_PROFILE_DEFAULTS[riskProfile];
 
   return {
     dryRun: parseBoolean(env.DRY_RUN, true),
@@ -97,6 +140,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     coinoneCliTimeoutMs: parsePositiveInteger(env.COINONE_CLI_TIMEOUT_MS, 15000, "COINONE_CLI_TIMEOUT_MS"),
     coinoneCliBaseUrl: optionalString(env.COINONE_CLI_BASE_URL),
     selectionMode,
+    riskProfile,
     tradeTargets: parseAssetList(env.TRADE_TARGETS),
     autoSelectionUniverse: parseAssetList(env.AUTO_SELECTION_UNIVERSE),
     maxSelectedAssets: parsePositiveInteger(env.MAX_SELECTED_ASSETS, 5, "MAX_SELECTED_ASSETS"),
@@ -105,20 +149,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     stablecoinTargets: parseAssetList(env.STABLECOIN_TARGETS).length > 0 ? parseAssetList(env.STABLECOIN_TARGETS) : ["USDC", "USDT"],
     strategyProfileOverrides: parseStrategyProfileOverrides(env.STRATEGY_PROFILE_OVERRIDES),
     riskControls: {
-      maxOrderKrw: parsePositiveNumber(env.MAX_ORDER_KRW, 100_000, "MAX_ORDER_KRW"),
+      maxOrderKrw: parsePositiveNumber(env.MAX_ORDER_KRW, profileDefaults.maxOrderKrw, "MAX_ORDER_KRW"),
       maxPositionPerAssetKrw: parsePositiveNumber(
         env.MAX_POSITION_PER_ASSET_KRW,
-        250_000,
+        profileDefaults.maxPositionPerAssetKrw,
         "MAX_POSITION_PER_ASSET_KRW"
       ),
-      minCashReserveKrw: parseNonNegativeNumber(env.MIN_CASH_RESERVE_KRW, 50_000, "MIN_CASH_RESERVE_KRW"),
-      cooldownMinutes: parsePositiveInteger(env.COOLDOWN_MINUTES, 180, "COOLDOWN_MINUTES"),
-      buyFractionOfCash: parseFraction(env.BUY_FRACTION_OF_CASH, 0.25, "BUY_FRACTION_OF_CASH"),
-      sellFractionOfPosition: parseFraction(env.SELL_FRACTION_OF_POSITION, 0.5, "SELL_FRACTION_OF_POSITION"),
-      maxDailyBuyKrw: parsePositiveNumber(env.MAX_DAILY_BUY_KRW, 100_000, "MAX_DAILY_BUY_KRW"),
-      maxTradesPerDay: parsePositiveInteger(env.MAX_TRADES_PER_DAY, 2, "MAX_TRADES_PER_DAY"),
-      maxOpenPositions: parsePositiveInteger(env.MAX_OPEN_POSITIONS, 3, "MAX_OPEN_POSITIONS"),
-      maxPortfolioExposurePct: parseFraction(env.MAX_PORTFOLIO_EXPOSURE_PCT, 0.6, "MAX_PORTFOLIO_EXPOSURE_PCT")
+      minCashReserveKrw: parseNonNegativeNumber(env.MIN_CASH_RESERVE_KRW, profileDefaults.minCashReserveKrw, "MIN_CASH_RESERVE_KRW"),
+      cooldownMinutes: parsePositiveInteger(env.COOLDOWN_MINUTES, profileDefaults.cooldownMinutes, "COOLDOWN_MINUTES"),
+      buyFractionOfCash: parseFraction(env.BUY_FRACTION_OF_CASH, profileDefaults.buyFractionOfCash, "BUY_FRACTION_OF_CASH"),
+      sellFractionOfPosition: parseFraction(env.SELL_FRACTION_OF_POSITION, profileDefaults.sellFractionOfPosition, "SELL_FRACTION_OF_POSITION"),
+      maxDailyBuyKrw: parsePositiveNumber(env.MAX_DAILY_BUY_KRW, profileDefaults.maxDailyBuyKrw, "MAX_DAILY_BUY_KRW"),
+      maxTradesPerDay: parsePositiveInteger(env.MAX_TRADES_PER_DAY, profileDefaults.maxTradesPerDay, "MAX_TRADES_PER_DAY"),
+      maxOpenPositions: parsePositiveInteger(env.MAX_OPEN_POSITIONS, profileDefaults.maxOpenPositions, "MAX_OPEN_POSITIONS"),
+      maxPortfolioExposurePct: parseFraction(env.MAX_PORTFOLIO_EXPOSURE_PCT, profileDefaults.maxPortfolioExposurePct, "MAX_PORTFOLIO_EXPOSURE_PCT")
     },
     agentDecisionProvider: parseAgentDecisionProvider(env.AGENT_DECISION_PROVIDER),
     agentDecisionOutputDir: optionalString(env.AGENT_DECISION_OUTPUT_DIR) ?? "artifacts/agent-decision",
@@ -148,6 +192,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     githubCreateIssues: parseBoolean(env.GITHUB_CREATE_ISSUES, false),
     reportOutputDir: optionalString(env.REPORT_OUTPUT_DIR) ?? "reports/generated"
   };
+}
+
+function parseRiskProfile(value: string | undefined): RiskProfileName {
+  const normalized = (value ?? "balanced").trim().toLowerCase();
+
+  if (normalized === "conservative" || normalized === "balanced" || normalized === "aggressive") {
+    return normalized;
+  }
+
+  throw new Error(`RISK_PROFILE must be one of "conservative", "balanced", or "aggressive". Received: ${value ?? ""}`);
 }
 
 function parseStrategyProfile(
