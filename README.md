@@ -1,6 +1,6 @@
 # coinone-autotrader
 
-Phase 5 adds an execution-preview layer alongside the existing dry-run trading scaffold. It keeps live trading disabled, preserves the current `trade:once`, `agent:decision`, and reporting flows, and now turns real `trade:once` decisions plus live or mock Coinone data into persisted would-submit order previews with final validation results while never sending a live order.
+Phase 5 adds an execution-preview layer alongside the existing dry-run trading scaffold. It keeps live trading disabled, preserves the current `trade:once`, `agent:decision`, and reporting flows, and now turns real `trade:once` decisions plus live or mock Coinone data into persisted would-submit order previews with final validation results while never sending a live order. It also adds manual approval plus mock submit scaffolding so operators can approve a specific `previewId`, attempt a guarded submit, and persist approval/submit audit artifacts without calling the live order API.
 
 The main executable workflow remains the dry-run `trade:once` command for the current deterministic strategy engine. In parallel, `agent:decision` now builds a normalized Coinone market/account snapshot from the existing CLI-backed data layer, validates a richer buy/sell/hold decision payload, persists snapshot/decision/execution/state files under `artifacts/agent-decision`, and supports either the existing deterministic mock provider or an OpenAI-compatible model endpoint through built-in `fetch`. Reporting commands continue to reuse the dry-run snapshot, build markdown issue drafts with a vertical Mermaid workflow diagram, optionally create GitHub issues through the REST API, and notify Slack through an incoming webhook. Phase 4 keeps internal reasoning, risk, and provider metadata in English while exposing Korean user-facing summaries for CLI/reporting/Slack; report titles stay stable for exact-title dedupe.
 
@@ -12,6 +12,8 @@ The main executable workflow remains the dry-run `trade:once` command for the cu
 - `agent:decision` persists inspectable JSON artifacts only; it never places orders.
 - Dry-run execution artifacts record what would have been sent for execution, but they are always blocked from live submission.
 - `execution:preview` builds would-submit order payloads and final validation results, then persists them without calling any order API.
+- `execution:approve` binds a short-lived manual approval to exactly one `previewId` and persists it for audit.
+- `execution:submit` fails closed unless preview, approval, and final safety gates all pass; the current adapter is mock-only and never sends a live order.
 - Private Coinone reads stay opt-in with `READ_ACCOUNT_DATA=false` by default.
 - Missing or uncertain account data now resolves to `hold` instead of guessing.
 - Daily risk caps are enforced only from completed orders and default to `hold` when account history is unavailable.
@@ -44,6 +46,8 @@ This explicit installation contract is used instead of an npm/git package depend
 npm run trade:once
 npm run agent:decision
 npm run execution:preview
+npm run execution:approve
+npm run execution:submit
 ```
 
 Dry-run behavior:
@@ -69,6 +73,27 @@ Behavior:
 - Persists `previews/latest.json` plus dated copies under `EXECUTION_PREVIEW_OUTPUT_DIR`.
 - Keeps Korean CLI summaries for operators while validation gate details remain English for debugging.
 - Never sends a live order, even if `ENABLE_LIVE_TRADING=true` and `DRY_RUN=false` are set locally.
+
+## Approval And Submit Scaffold
+
+```bash
+MARKET_DATA_MODE=mock npm run execution:preview
+MARKET_DATA_MODE=mock npm run execution:approve
+MARKET_DATA_MODE=mock npm run execution:submit
+
+MARKET_DATA_MODE=mock npm run execution:approve -- --preview-id=execution-preview-2026-04-04T00-00-00-000Z
+MARKET_DATA_MODE=mock npm run execution:submit -- --preview-id=execution-preview-2026-04-04T00-00-00-000Z --approval-id=execution-approval-2026-04-04T00-01-00-000Z
+```
+
+Behavior:
+
+- `execution:approve` loads the latest preview by default, or a specific preview via `--preview-id=...`.
+- Approval artifacts are written to `approvals/latest.json` plus dated copies under `EXECUTION_PREVIEW_OUTPUT_DIR`.
+- Each approval expires after `EXECUTION_APPROVAL_WINDOW_SECONDS` and is bound to exactly one `previewId`.
+- `execution:submit` validates preview schema, approval presence, preview/approval ID match, approval expiry, and whether the preview contains at least one submittable entry.
+- Submit attempts fail closed when approval is missing, expired, or linked to another preview.
+- Submit artifacts are written to `submits/latest.json` plus dated copies even when the submit is blocked.
+- The current submit adapter is intentionally `mock` only, so successful submit runs record mock order IDs and never place a real Coinone order.
 
 ## Agent Decision Dry Run
 
@@ -244,6 +269,7 @@ The app loads environment variables from `.env` and process environment.
 | `AGENT_DECISION_PROVIDER` | Agent provider implementation used by `agent:decision`: `mock` or `openai-compatible` | `mock` |
 | `AGENT_DECISION_OUTPUT_DIR` | Output directory for normalized snapshot, decision, and state files | `artifacts/agent-decision` |
 | `EXECUTION_PREVIEW_OUTPUT_DIR` | Output directory for persisted execution-preview artifacts | `artifacts/execution-preview` |
+| `EXECUTION_APPROVAL_WINDOW_SECONDS` | Manual approval validity window before `execution:submit` must reject it | `300` |
 | `AGENT_PROVIDER_ENDPOINT` | Full OpenAI-compatible chat completions endpoint used when `AGENT_DECISION_PROVIDER=openai-compatible` | empty |
 | `AGENT_PROVIDER_API_KEY` | Bearer token for the OpenAI-compatible endpoint | empty |
 | `AGENT_PROVIDER_MODEL` | Provider model identifier sent to the OpenAI-compatible endpoint and recorded into decision metadata | empty |

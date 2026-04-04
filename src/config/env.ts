@@ -10,6 +10,7 @@ export interface AppConfig {
   dryRun: boolean;
   enableLiveTrading: boolean;
   tradingKillSwitch: boolean;
+  executionApprovalWindowSeconds: number;
   quoteCurrency: string;
   marketDataMode: MarketDataMode;
   coinoneCliPath?: string;
@@ -75,6 +76,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     dryRun: parseBoolean(env.DRY_RUN, true),
     enableLiveTrading: parseBoolean(env.ENABLE_LIVE_TRADING, false),
     tradingKillSwitch: parseBoolean(env.TRADING_KILL_SWITCH, false),
+    executionApprovalWindowSeconds: parsePositiveInteger(
+      env.EXECUTION_APPROVAL_WINDOW_SECONDS,
+      300,
+      "EXECUTION_APPROVAL_WINDOW_SECONDS"
+    ),
     quoteCurrency: parseAssetSymbol(env.QUOTE_CURRENCY ?? "KRW", "QUOTE_CURRENCY"),
     marketDataMode: parseMarketDataMode(env.MARKET_DATA_MODE),
     coinoneCliPath: optionalString(env.COINONE_CLI_PATH),
