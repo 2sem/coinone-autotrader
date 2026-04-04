@@ -163,7 +163,7 @@ async function patchIssue(
   return parseIssueResponse(response, "update");
 }
 
-async function findOpenIssueByExactTitleWithGh(
+export async function findOpenIssueByExactTitleWithGh(
   title: string,
   repository: GitHubRepository
 ): Promise<CreatedIssue | undefined> {
@@ -202,7 +202,7 @@ async function findOpenIssueByExactTitleWithGh(
   return undefined;
 }
 
-async function createIssueWithGh(draft: IssueDraft, repository: GitHubRepository): Promise<CreatedIssue> {
+export async function createIssueWithGh(draft: IssueDraft, repository: GitHubRepository): Promise<CreatedIssue> {
   const payload = await ghApi(
     [
       `repos/${repository.owner}/${repository.name}/issues`,
@@ -220,7 +220,7 @@ async function createIssueWithGh(draft: IssueDraft, repository: GitHubRepository
   return parseGhIssuePayload(payload, "creation");
 }
 
-async function patchIssueWithGh(issueNumber: number, draft: IssueDraft, repository: GitHubRepository): Promise<CreatedIssue> {
+export async function patchIssueWithGh(issueNumber: number, draft: IssueDraft, repository: GitHubRepository): Promise<CreatedIssue> {
   const payload = await ghApi(
     [
       `repos/${repository.owner}/${repository.name}/issues/${issueNumber}`,
