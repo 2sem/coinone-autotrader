@@ -11,7 +11,7 @@ const COMPLETED_ORDER_LOOKBACK_DAYS = 30;
 const COMPLETED_ORDER_HISTORY_SIZE = 100;
 
 export interface AccountSnapshot {
-  source: "live-cli" | "skipped";
+  source: "live-cli" | "unavailable";
   configured: boolean;
   balances: CoinoneBalance[];
   completedOrders: CoinoneCompletedOrder[];
@@ -70,26 +70,16 @@ async function loadLiveMarketSnapshot(config: AppConfig): Promise<MarketSnapshot
 }
 
 async function loadAccountSnapshot(config: AppConfig, adapter: CoinoneCliAdapter): Promise<AccountSnapshot> {
-  if (!config.readAccountData) {
-    return {
-        source: "skipped",
-        configured: false,
-        balances: [],
-        completedOrders: [],
-        notes: ["READ_ACCOUNT_DATA=false keeps private read-only account calls disabled."]
-      };
-  }
-
   const authStatus = await adapter.getAuthStatus();
 
   if (!authStatus.configured) {
     return {
-        source: "skipped",
+        source: "unavailable",
         configured: false,
         balances: [],
         completedOrders: [],
         notes: [
-          "Account reads requested, but Coinone credentials are not configured.",
+          "Account reads are always required, but Coinone credentials are not configured.",
           ...(authStatus.missing ?? []).map((entry) => `Missing ${entry}.`)
       ]
     };
@@ -155,16 +145,16 @@ function buildMockMarketSnapshot(config: AppConfig, notes: string[]): MarketSnap
     quoteCurrency: config.quoteCurrency,
     markets,
     tickers,
-    rankedTargets: targets,
-    notes: [...notes, `Generated ${targets.length} local mock markets for dry-run safety.`],
-    account: {
-      source: "skipped",
-      configured: false,
-      balances: [],
-      completedOrders: [],
-      notes: ["Mock mode does not call private account endpoints."]
-    }
-  };
+      rankedTargets: targets,
+      notes: [...notes, `Generated ${targets.length} local mock markets for dry-run safety.`],
+      account: {
+      source: "unavailable",
+        configured: false,
+        balances: [],
+        completedOrders: [],
+      notes: ["Mock mode does not call private account endpoints, so account data is unavailable."]
+      }
+    };
 }
 
 function buildCompletedOrderWindow(now: Date = new Date()): { from: Date; to: Date } {

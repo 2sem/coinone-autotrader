@@ -16,7 +16,6 @@ export interface AppConfig {
   coinoneCliPath?: string;
   coinoneCliTimeoutMs: number;
   coinoneCliBaseUrl?: string;
-  readAccountData: boolean;
   selectionMode: SelectionMode;
   tradeTargets: string[];
   autoSelectionUniverse: string[];
@@ -31,6 +30,7 @@ export interface AppConfig {
   executionPreviewOutputDir: string;
   agentProviderRuntime: AgentProviderRuntimeConfig;
   slackWebhookUrl?: string;
+  slackNotificationPolicy: SlackNotificationPolicy;
   githubToken?: string;
   githubRepository?: GitHubRepository;
   githubApiBaseUrl: string;
@@ -63,6 +63,16 @@ export interface RiskControls {
   maxPortfolioExposurePct: number;
 }
 
+export interface SlackNotificationPolicy {
+  routinePreview: boolean;
+  routineDryRun: boolean;
+  approvalNeeded: boolean;
+  actionNeeded: boolean;
+  dailyReport: boolean;
+  monthlyReport: boolean;
+  liveSubmit: boolean;
+}
+
 export interface GitHubRepository {
   owner: string;
   name: string;
@@ -86,7 +96,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     coinoneCliPath: optionalString(env.COINONE_CLI_PATH),
     coinoneCliTimeoutMs: parsePositiveInteger(env.COINONE_CLI_TIMEOUT_MS, 15000, "COINONE_CLI_TIMEOUT_MS"),
     coinoneCliBaseUrl: optionalString(env.COINONE_CLI_BASE_URL),
-    readAccountData: parseBoolean(env.READ_ACCOUNT_DATA, false),
     selectionMode,
     tradeTargets: parseAssetList(env.TRADE_TARGETS),
     autoSelectionUniverse: parseAssetList(env.AUTO_SELECTION_UNIVERSE),
@@ -124,6 +133,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       fallbackToMock: parseBoolean(env.AGENT_PROVIDER_FALLBACK_TO_MOCK, false)
     },
     slackWebhookUrl: optionalString(env.SLACK_WEBHOOK_URL),
+    slackNotificationPolicy: {
+      routinePreview: parseBoolean(env.SLACK_NOTIFY_ROUTINE_PREVIEW, false),
+      routineDryRun: parseBoolean(env.SLACK_NOTIFY_ROUTINE_DRY_RUN, false),
+      approvalNeeded: parseBoolean(env.SLACK_NOTIFY_APPROVAL_NEEDED, true),
+      actionNeeded: parseBoolean(env.SLACK_NOTIFY_ACTION_NEEDED, true),
+      dailyReport: parseBoolean(env.SLACK_NOTIFY_DAILY_REPORT, true),
+      monthlyReport: parseBoolean(env.SLACK_NOTIFY_MONTHLY_REPORT, true),
+      liveSubmit: parseBoolean(env.SLACK_NOTIFY_LIVE_SUBMIT, true)
+    },
     githubToken: optionalString(env.GITHUB_TOKEN),
     githubRepository: parseGitHubRepository(env.GITHUB_REPOSITORY),
     githubApiBaseUrl: optionalString(env.GITHUB_API_BASE_URL) ?? "https://api.github.com",

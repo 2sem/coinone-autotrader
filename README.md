@@ -14,7 +14,7 @@ The main executable workflow remains the dry-run `trade:once` command for the cu
 - `execution:preview` builds would-submit order payloads and final validation results, then persists them without calling any order API.
 - `execution:approve` binds a short-lived manual approval to exactly one `previewId` and persists it for audit.
 - `execution:submit` fails closed unless preview, approval, and final safety gates all pass; the current adapter is mock-only and never sends a live order.
-- Private Coinone reads stay opt-in with `READ_ACCOUNT_DATA=false` by default.
+- Coinone 계좌 정보는 판단에 항상 포함되며, 읽지 못하면 보수적으로 `hold` 처리합니다.
 - Missing or uncertain account data now resolves to `hold` instead of guessing.
 - Daily risk caps are enforced only from completed orders and default to `hold` when account history is unavailable.
 - `USDC` and `USDT` automatically use the `stablecoin` profile unless `STRATEGY_PROFILE_OVERRIDES` says otherwise.
@@ -55,14 +55,14 @@ Dry-run behavior:
 - `MARKET_DATA_MODE=auto`: try the local `coinone` CLI first, then fall back to mock data.
 - `MARKET_DATA_MODE=live`: require the local CLI and fail if it cannot return data.
 - `MARKET_DATA_MODE=mock`: skip all external API reads and use deterministic local fixtures.
-- When `READ_ACCOUNT_DATA=true` and Coinone credentials are configured, the run also loads balances plus up to 100 completed orders from the last 30 days through the vendored `2sem/coinone-api-cli` adapter.
+- Coinone credentials가 설정되어 있으면 balances와 최근 30일 completed orders를 항상 함께 읽어 판단에 반영합니다.
 - Decision output stays conservative: cooldown blocks repeat trades, completed orders enforce `MAX_DAILY_BUY_KRW` and `MAX_TRADES_PER_DAY`, stablecoins accumulate with smaller capped buys and no sell signal, missing balance or pricing data yields `hold`, and live order placement stays disabled.
 
 ## Execution Preview
 
 ```bash
 MARKET_DATA_MODE=auto npm run execution:preview
-MARKET_DATA_MODE=live READ_ACCOUNT_DATA=true npm run execution:preview
+MARKET_DATA_MODE=live npm run execution:preview
 ```
 
 Behavior:
@@ -71,6 +71,7 @@ Behavior:
 - Converts each non-hold decision into a realistic would-submit limit-order payload with `side`, `type`, `price`, `quantity`, `value`, and `pair`.
 - Runs final validation gates for payload completeness, allowlist membership, `MAX_ORDER_KRW`, `MIN_CASH_RESERVE_KRW`, `ENABLE_LIVE_TRADING`, `TRADING_KILL_SWITCH`, and `DRY_RUN` policy.
 - Persists `previews/latest.json` plus dated copies under `EXECUTION_PREVIEW_OUTPUT_DIR`.
+- Routine preview Slack delivery is silent by default; set `SLACK_NOTIFY_ROUTINE_PREVIEW=true` only if you want every preview run to page Slack.
 - Keeps Korean CLI summaries for operators while validation gate details remain English for debugging.
 - Never sends a live order, even if `ENABLE_LIVE_TRADING=true` and `DRY_RUN=false` are set locally.
 
@@ -132,7 +133,7 @@ Reporting behavior:
 - Local runs prefer the authenticated `gh` CLI session for issue creation and updates.
 - GitHub Actions can continue using the built-in `github.token` environment when available.
 - If issue creation is skipped or blocked, the command still returns a markdown path and manual GitHub issue URL metadata when a repository is configured.
-- If `SLACK_WEBHOOK_URL` is set, Slack receives either the created issue link or an action-needed message.
+- If `SLACK_WEBHOOK_URL` is set, Slack delivery now follows the notification policy: routine preview and routine dry-run events are silent by default, while daily/monthly reports plus action-needed or blocked events stay eligible.
 
 ## GitHub Actions workflows
 
@@ -148,7 +149,7 @@ Workflow defaults stay safe:
 - Node 20 is used in every workflow.
 - `DRY_RUN=true` is forced in CI.
 - `MARKET_DATA_MODE=mock` is the default for both schedules and manual dispatches.
-- `READ_ACCOUNT_DATA=false` stays the default.
+- Coinone 계좌 정보 조회는 워크플로에서도 항상 포함됩니다.
 - Each workflow has a concurrency guard so overlapping runs on the same ref do not execute in parallel.
 
 Schedule defaults are KST-friendly and documented in UTC for GitHub Actions cron syntax:
@@ -169,7 +170,6 @@ Schedule defaults are KST-friendly and documented in UTC for GitHub Actions cron
 | `auto_selection_universe` | Comma-separated targets for auto mode | `BTC,ETH,XRP,SOL` |
 | `excluded_targets` | Comma-separated exclusions | empty |
 | `max_selected_assets` | Max assets to keep in auto mode | `5` |
-| `read_account_data` | Enables read-only Coinone account snapshots | `false` |
 | `create_github_issue` | Enables report or action-needed GitHub issue creation | `false` |
 
 `agent-trade-run.yml` exposes the same dry-run market-selection inputs plus one additional manual input:
@@ -188,7 +188,6 @@ Optional repository variables:
 - `COINONE_AUTO_SELECTION_UNIVERSE`
 - `COINONE_EXCLUDED_TARGETS`
 - `COINONE_MAX_SELECTED_ASSETS`
-- `COINONE_READ_ACCOUNT_DATA`
 - `ENABLE_LIVE_TRADING`
 - `TRADING_KILL_SWITCH`
 - `COINONE_CLI_TIMEOUT_MS`
@@ -247,7 +246,6 @@ The app loads environment variables from `.env` and process environment.
 | `COINONE_CLI_PATH` | Optional path to `coinone` executable or built JS entrypoint | auto-detect `.vendor/...` then `coinone` |
 | `COINONE_CLI_TIMEOUT_MS` | Timeout for each local CLI invocation | `15000` |
 | `COINONE_CLI_BASE_URL` | Optional Coinone-compatible base URL for mocks/proxies | empty |
-| `READ_ACCOUNT_DATA` | Enables read-only private account calls | `false` |
 | `SELECTION_MODE` | Asset selection strategy: `allowlist` or `auto` | `allowlist` |
 | `TRADE_TARGETS` | Comma-separated assets used in `allowlist` mode | empty |
 | `AUTO_SELECTION_UNIVERSE` | Comma-separated candidate assets for `auto` mode | empty |
@@ -277,9 +275,16 @@ The app loads environment variables from `.env` and process environment.
 | `AGENT_PROVIDER_TEMPERATURE` | Optional provider temperature sent to the endpoint and recorded into decision metadata | empty |
 | `AGENT_PROVIDER_TIMEOUT_MS` | Timeout for the OpenAI-compatible provider request | `20000` |
 | `AGENT_PROVIDER_FALLBACK_TO_MOCK` | If `true`, automatically re-runs `agent:decision` with the deterministic mock provider when the OpenAI-compatible path is misconfigured or fails | `false` |
-| `COINONE_ACCESS_TOKEN` | Coinone private API access token for optional balance reads | empty |
-| `COINONE_SECRET_KEY` | Coinone private API secret key for optional balance reads | empty |
+| `COINONE_ACCESS_TOKEN` | Coinone private API access token used for account-based 판단과 리포트 | empty |
+| `COINONE_SECRET_KEY` | Coinone private API secret key used for account-based 판단과 리포트 | empty |
 | `SLACK_WEBHOOK_URL` | Incoming webhook for issue-link or action-needed notifications | empty |
+| `SLACK_NOTIFY_ROUTINE_PREVIEW` | Enables Slack for routine execution preview runs | `false` |
+| `SLACK_NOTIFY_ROUTINE_DRY_RUN` | Enables Slack for routine dry-run trade or agent runs | `false` |
+| `SLACK_NOTIFY_APPROVAL_NEEDED` | Keeps approval-needed notifications eligible for Slack | `true` |
+| `SLACK_NOTIFY_ACTION_NEEDED` | Keeps blocked or action-needed notifications eligible for Slack | `true` |
+| `SLACK_NOTIFY_DAILY_REPORT` | Keeps daily report notifications eligible for Slack | `true` |
+| `SLACK_NOTIFY_MONTHLY_REPORT` | Keeps monthly report notifications eligible for Slack | `true` |
+| `SLACK_NOTIFY_LIVE_SUBMIT` | Reserves Slack eligibility for future live submit notifications | `true` |
 | `GITHUB_REPOSITORY` | Repository for issue creation in `owner/repo` form | empty |
 | `GITHUB_TOKEN` | Optional GitHub token for REST API issue creation; local runs can use `gh auth login` instead | empty |
 | `GITHUB_API_BASE_URL` | GitHub REST API base URL | `https://api.github.com` |
@@ -299,7 +304,7 @@ The app loads environment variables from `.env` and process environment.
 - `sell`: only when a position exists, the resolved profile allows sells, average entry is available, and the current best bid is at least 3% above or 5% below average entry; the recommended quantity is limited by `SELL_FRACTION_OF_POSITION`.
 - `hold`: default whenever account data is unavailable, prices are incomplete, average entry is missing, cooldown is active, daily caps are exhausted, or no safe budget remains.
 
-Dry-run output now includes the resolved profile per target, signal details, daily risk-cap usage, portfolio-cap usage, future live-execution block reasons, hold explanations, a small account preview, a portfolio snapshot, and per-target decisions when `READ_ACCOUNT_DATA=true` and Coinone credentials are present.
+Dry-run output now includes the resolved profile per target, signal details, daily risk-cap usage, portfolio-cap usage, future live-execution block reasons, hold explanations, a small account preview, a portfolio snapshot, and per-target decisions whenever Coinone credentials are present.
 
 ## Project layout
 
@@ -326,8 +331,7 @@ npm run build
 MARKET_DATA_MODE=mock npm run agent:decision
 MARKET_DATA_MODE=mock npm run report:agent-trade-run
 MARKET_DATA_MODE=mock AGENT_DECISION_PROVIDER=openai-compatible AGENT_PROVIDER_ENDPOINT=http://127.0.0.1:4010/v1/chat/completions AGENT_PROVIDER_API_KEY=test-key AGENT_PROVIDER_MODEL=stub-model npm run agent:decision
-READ_ACCOUNT_DATA=false MARKET_DATA_MODE=mock npm run trade:once
-READ_ACCOUNT_DATA=true MARKET_DATA_MODE=mock npm run trade:once
+MARKET_DATA_MODE=mock npm run trade:once
 npm run trade:once
 MARKET_DATA_MODE=mock npm run trade:once
 MARKET_DATA_MODE=mock GITHUB_CREATE_ISSUES=false npm run report:daily
@@ -344,8 +348,7 @@ Expected result:
 - The agent run writes `snapshots/latest.json`, `decisions/latest.json`, `executions/latest.json`, and `state/latest.json` plus dated files beneath `artifacts/agent-decision/`.
 - Each decision now includes English internal reasoning/risk/provider metadata plus a Korean `userFacing` summary block for CLI/reporting adapters.
 - `npm run coinone:doctor` prints the vendored Coinone CLI runtime/auth health status.
-- `READ_ACCOUNT_DATA=false MARKET_DATA_MODE=mock npm run trade:once` returns `hold` decisions because private account data is intentionally unavailable.
-- `READ_ACCOUNT_DATA=true MARKET_DATA_MODE=mock npm run trade:once` still returns `hold` decisions because mock mode does not read private endpoints.
+- `MARKET_DATA_MODE=mock npm run trade:once` returns `hold` decisions because mock mode does not read private account endpoints.
 - `MARKET_DATA_MODE=mock npm run trade:once` prints the same dry-run structure using deterministic local fixture data only.
 - `MARKET_DATA_MODE=mock GITHUB_CREATE_ISSUES=false npm run report:daily` prints JSON metadata with a markdown draft path plus action-needed reasons instead of creating a GitHub issue.
 - `MARKET_DATA_MODE=mock GITHUB_CREATE_ISSUES=false npm run report:monthly` does the same for the monthly issue format.
@@ -368,13 +371,12 @@ To run the same agent-driven dry-run in GitHub Actions:
 2. Leave `agent_decision_provider=mock` for the safest default, or switch to `openai-compatible` only after setting `AGENT_PROVIDER_ENDPOINT`, `AGENT_PROVIDER_MODEL`, and optional prompt/runtime vars in repository variables plus `AGENT_PROVIDER_API_KEY` in repository secrets.
 3. Trigger the workflow and download the `agent-trade-run-artifacts` bundle to inspect the Korean summary and copied decision/execution JSON files.
 
-To enable optional read-only account data in dry-run mode:
+To enable account-based 판단 in dry-run mode:
 
 ```bash
-READ_ACCOUNT_DATA=true \
 COINONE_ACCESS_TOKEN=your-access-token \
 COINONE_SECRET_KEY=your-secret-key \
 npm run trade:once
 ```
 
-This still does not place orders; it only allows `coinone --json auth status`, `coinone --json balances list`, and `coinone --json orders completed`.
+This still does not place orders; it only allows `coinone --json auth status`, `coinone --json balances list`, and `coinone --json orders completed` to inform the decision.
