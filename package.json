@@ -1,0 +1,29 @@
+{
+  "name": "coinone-autotrader",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Safe dry-run scaffold for Coinone autotrading experiments.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "coinone:install": "node scripts/install-coinone-cli.mjs",
+    "coinone:doctor": "node -r dotenv/config .vendor/coinone-api-cli/dist/bin/coinone.js --json doctor",
+    "agent:decision": "tsx src/cli/agent-decision.ts",
+    "trade:once": "tsx src/cli/trade-once.ts",
+    "report:trade-run": "node scripts/run-workflow-report.mjs trade-run",
+    "report:agent-trade-run": "node scripts/run-workflow-report.mjs agent-trade-run",
+    "report:daily": "tsx src/cli/report.ts daily",
+    "report:monthly": "tsx src/cli/report.ts monthly"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

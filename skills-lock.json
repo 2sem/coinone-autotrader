@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "coinone-api-cli": {
+      "source": "2sem/coinone-api-cli",
+      "sourceType": "github",
+      "computedHash": "b5ab6574272373872005cafa131256d5f31d26c37e3d832792fc43150b027a34"
+    },
+    "crypto-trading-advisor": {
+      "source": "0xrikt/crypto-skills",
+      "sourceType": "github",
+      "computedHash": "ac551592a1aeb2c68c16c0a591638e303a8b4da930147c636f018b5d9b55e3aa"
+    }
+  }
+}

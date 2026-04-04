@@ -1,0 +1,1 @@
+Because the repo is currently empty, no enforced lint/test/format commands exist yet. For future tasks in this repo, completion should normally include: run unit tests, run dry-run scenario tests against mocked Coinone responses, validate GitHub Actions workflow syntax if changed, and confirm secrets are not logged. If no verification can be run, state that clearly.

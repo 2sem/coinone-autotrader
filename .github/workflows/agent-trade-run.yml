@@ -1,0 +1,160 @@
+name: Agent Trade Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      market_data_mode:
+        description: "mock, auto, or live"
+        type: choice
+        options: [mock, auto, live]
+        default: mock
+      selection_mode:
+        description: "allowlist or auto"
+        type: choice
+        options: [allowlist, auto]
+        default: allowlist
+      trade_targets:
+        description: "Comma-separated targets for allowlist mode"
+        type: string
+        default: "BTC,ETH"
+      auto_selection_universe:
+        description: "Comma-separated targets for auto mode"
+        type: string
+        default: "BTC,ETH,XRP,SOL"
+      excluded_targets:
+        description: "Comma-separated targets to exclude"
+        type: string
+        default: ""
+      max_selected_assets:
+        description: "Maximum selected assets in auto mode"
+        type: string
+        default: "5"
+      read_account_data:
+        description: "Enable read-only account snapshot"
+        type: choice
+        options: ["false", "true"]
+        default: "false"
+      agent_decision_provider:
+        description: "mock or openai-compatible"
+        type: choice
+        options: [mock, openai-compatible]
+        default: mock
+      create_github_issue:
+        description: "Open an issue on failure or action-needed"
+        type: choice
+        options: ["false", "true"]
+        default: "false"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: dry-run-agent-trade-run-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  agent-trade-run:
+    runs-on: ubuntu-latest
+    env:
+      DRY_RUN: "true"
+      MARKET_DATA_MODE: ${{ github.event.inputs.market_data_mode || vars.COINONE_MARKET_DATA_MODE || 'mock' }}
+      SELECTION_MODE: ${{ github.event.inputs.selection_mode || vars.COINONE_SELECTION_MODE || 'allowlist' }}
+      TRADE_TARGETS: ${{ github.event.inputs.trade_targets || vars.COINONE_TRADE_TARGETS || 'BTC,ETH' }}
+      AUTO_SELECTION_UNIVERSE: ${{ github.event.inputs.auto_selection_universe || vars.COINONE_AUTO_SELECTION_UNIVERSE || 'BTC,ETH,XRP,SOL' }}
+      EXCLUDED_TARGETS: ${{ github.event.inputs.excluded_targets || vars.COINONE_EXCLUDED_TARGETS || '' }}
+      MAX_SELECTED_ASSETS: ${{ github.event.inputs.max_selected_assets || vars.COINONE_MAX_SELECTED_ASSETS || '5' }}
+      READ_ACCOUNT_DATA: ${{ github.event.inputs.read_account_data || vars.COINONE_READ_ACCOUNT_DATA || 'false' }}
+      ENABLE_LIVE_TRADING: ${{ vars.ENABLE_LIVE_TRADING || 'false' }}
+      TRADING_KILL_SWITCH: ${{ vars.TRADING_KILL_SWITCH || 'false' }}
+      COINONE_CLI_TIMEOUT_MS: ${{ vars.COINONE_CLI_TIMEOUT_MS || '15000' }}
+      COINONE_CLI_BASE_URL: ${{ vars.COINONE_CLI_BASE_URL || '' }}
+      COINONE_ACCESS_TOKEN: ${{ secrets.COINONE_ACCESS_TOKEN || '' }}
+      COINONE_SECRET_KEY: ${{ secrets.COINONE_SECRET_KEY || '' }}
+      AGENT_DECISION_PROVIDER: ${{ github.event.inputs.agent_decision_provider || vars.AGENT_DECISION_PROVIDER || 'mock' }}
+      AGENT_PROVIDER_ENDPOINT: ${{ vars.AGENT_PROVIDER_ENDPOINT || '' }}
+      AGENT_PROVIDER_API_KEY: ${{ secrets.AGENT_PROVIDER_API_KEY || '' }}
+      AGENT_PROVIDER_MODEL: ${{ vars.AGENT_PROVIDER_MODEL || '' }}
+      AGENT_PROVIDER_PROMPT_VERSION: ${{ vars.AGENT_PROVIDER_PROMPT_VERSION || 'phase-4' }}
+      AGENT_PROVIDER_TEMPERATURE: ${{ vars.AGENT_PROVIDER_TEMPERATURE || '' }}
+      AGENT_PROVIDER_TIMEOUT_MS: ${{ vars.AGENT_PROVIDER_TIMEOUT_MS || '20000' }}
+      AGENT_PROVIDER_FALLBACK_TO_MOCK: ${{ vars.AGENT_PROVIDER_FALLBACK_TO_MOCK || 'false' }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || '' }}
+      CREATE_GITHUB_ISSUE: ${{ github.event.inputs.create_github_issue || vars.CREATE_GITHUB_ISSUE || 'false' }}
+      ACTIONS_ISSUE_LABELS: ${{ vars.ACTIONS_ISSUE_LABELS || 'automation,dry-run,agent-trade-run' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - id: report
+        run: npm run report:agent-trade-run
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-trade-run-artifacts
+          path: ${{ steps.report.outputs.report_dir }}
+          if-no-files-found: error
+
+      - name: Notify Slack
+        if: always() && env.SLACK_WEBHOOK_URL != '' && steps.report.outputs.needs_attention == 'true'
+        run: node scripts/post-slack-notification.mjs "${{ steps.report.outputs.summary_path }}" "에이전트 드라이런 실행에 확인이 필요합니다"
+
+      - name: Create or update GitHub issue
+        if: always() && env.CREATE_GITHUB_ISSUE == 'true' && steps.report.outputs.needs_attention == 'true'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_TITLE: ${{ steps.report.outputs.issue_title }}
+          SUMMARY_PATH: ${{ steps.report.outputs.summary_path }}
+          ACTIONS_ISSUE_LABELS: ${{ env.ACTIONS_ISSUE_LABELS }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('node:fs');
+            const title = process.env.ISSUE_TITLE;
+            const body = fs.readFileSync(process.env.SUMMARY_PATH, 'utf8');
+            const labels = (process.env.ACTIONS_ISSUE_LABELS || '')
+              .split(',')
+              .map((value) => value.trim())
+              .filter(Boolean);
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const existingIssue = issues.find((issue) => !issue.pull_request && issue.title === title);
+
+            if (existingIssue) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                title,
+                body,
+                labels
+              });
+              core.info(`Updated issue #${existingIssue.number}: ${existingIssue.html_url}`);
+              return;
+            }
+
+            const createdIssue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels
+            });
+            core.info(`Created issue #${createdIssue.data.number}: ${createdIssue.data.html_url}`);
+
+      - name: Fail workflow on execution failure
+        if: always() && steps.report.outputs.conclusion == 'failure'
+        run: exit 1

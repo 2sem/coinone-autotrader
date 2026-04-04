@@ -1,0 +1,108 @@
+name: Daily Report
+
+on:
+  workflow_dispatch:
+    inputs:
+      market_data_mode:
+        description: "mock, auto, or live"
+        type: choice
+        options: [mock, auto, live]
+        default: mock
+      selection_mode:
+        description: "allowlist or auto"
+        type: choice
+        options: [allowlist, auto]
+        default: allowlist
+      trade_targets:
+        description: "Comma-separated targets for allowlist mode"
+        type: string
+        default: "BTC,ETH"
+      auto_selection_universe:
+        description: "Comma-separated targets for auto mode"
+        type: string
+        default: "BTC,ETH,XRP,SOL"
+      excluded_targets:
+        description: "Comma-separated targets to exclude"
+        type: string
+        default: ""
+      max_selected_assets:
+        description: "Maximum selected assets in auto mode"
+        type: string
+        default: "5"
+      read_account_data:
+        description: "Enable read-only account snapshot"
+        type: choice
+        options: ["false", "true"]
+        default: "false"
+      create_github_issue:
+        description: "Create a GitHub issue from the report"
+        type: choice
+        options: ["false", "true"]
+        default: "false"
+  schedule:
+    # Default: every day at 09:05 KST (00:05 UTC).
+    - cron: "5 0 * * *"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: dry-run-daily-report-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+    env:
+      DRY_RUN: "true"
+      MARKET_DATA_MODE: ${{ github.event.inputs.market_data_mode || vars.COINONE_MARKET_DATA_MODE || 'mock' }}
+      SELECTION_MODE: ${{ github.event.inputs.selection_mode || vars.COINONE_SELECTION_MODE || 'allowlist' }}
+      TRADE_TARGETS: ${{ github.event.inputs.trade_targets || vars.COINONE_TRADE_TARGETS || 'BTC,ETH' }}
+      AUTO_SELECTION_UNIVERSE: ${{ github.event.inputs.auto_selection_universe || vars.COINONE_AUTO_SELECTION_UNIVERSE || 'BTC,ETH,XRP,SOL' }}
+      EXCLUDED_TARGETS: ${{ github.event.inputs.excluded_targets || vars.COINONE_EXCLUDED_TARGETS || '' }}
+      MAX_SELECTED_ASSETS: ${{ github.event.inputs.max_selected_assets || vars.COINONE_MAX_SELECTED_ASSETS || '5' }}
+      READ_ACCOUNT_DATA: ${{ github.event.inputs.read_account_data || vars.COINONE_READ_ACCOUNT_DATA || 'false' }}
+      ENABLE_LIVE_TRADING: ${{ vars.ENABLE_LIVE_TRADING || 'false' }}
+      TRADING_KILL_SWITCH: ${{ vars.TRADING_KILL_SWITCH || 'false' }}
+      COINONE_CLI_TIMEOUT_MS: ${{ vars.COINONE_CLI_TIMEOUT_MS || '15000' }}
+      COINONE_CLI_BASE_URL: ${{ vars.COINONE_CLI_BASE_URL || '' }}
+      COINONE_ACCESS_TOKEN: ${{ secrets.COINONE_ACCESS_TOKEN || '' }}
+      COINONE_SECRET_KEY: ${{ secrets.COINONE_SECRET_KEY || '' }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || '' }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      GITHUB_TOKEN: ${{ github.token }}
+      GITHUB_API_BASE_URL: https://api.github.com
+      GITHUB_CREATE_ISSUES: ${{ github.event.inputs.create_github_issue || vars.CREATE_GITHUB_ISSUE || 'false' }}
+      REPORT_OUTPUT_DIR: reports/generated
+      MAX_OPEN_POSITIONS: ${{ vars.MAX_OPEN_POSITIONS || '3' }}
+      MAX_PORTFOLIO_EXPOSURE_PCT: ${{ vars.MAX_PORTFOLIO_EXPOSURE_PCT || '0.6' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - id: report
+        run: node scripts/run-workflow-report.mjs daily-report
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daily-report-artifacts
+          path: ${{ steps.report.outputs.report_dir }}
+          if-no-files-found: error
+
+      - name: Notify Slack for action-needed runs
+        if: always() && env.SLACK_WEBHOOK_URL != '' && steps.report.outputs.needs_attention == 'true'
+        run: node scripts/post-slack-notification.mjs "${{ steps.report.outputs.summary_path }}" "일일 보고서에 확인이 필요합니다"
+
+      - name: Fail workflow on execution failure
+        if: always() && steps.report.outputs.conclusion == 'failure'
+        run: exit 1

@@ -1,0 +1,1 @@
+No repository-specific style files or source code conventions exist yet. Use ASCII by default, small composable modules, environment-variable based secrets, JSON-first machine-readable command outputs, and non-destructive dry-run defaults. Prefer stable CLI contracts over ad hoc scripts.

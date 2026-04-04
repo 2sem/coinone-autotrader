@@ -1,0 +1,4 @@
+Purpose: bootstrap repository for automating Coinone trading workflows. Current repo is nearly empty and only contains Serena metadata plus a local crypto trading advisor skill lock. No application source files, package manifests, CI workflows, or tests exist yet.
+Tech stack: not implemented yet in-repo. Based on requested integration target, the likely stack is Node.js 20+ with shell/JQ support and GitHub Actions.
+Structure: root currently has only `.serena/`, `.agents/`, and `skills-lock.json`.
+Patterns/guidelines: no repo-local coding conventions found yet; follow existing global instructions and keep implementations simple, scriptable, and safe for automation.
