@@ -55,8 +55,8 @@ export function localizeMarketDataSource(source: string): string {
 }
 
 export function localizeAccountSource(source: string): string {
-  if (source === "skipped") {
-    return "조회 안 함";
+  if (source === "unavailable") {
+    return "불러오지 못함";
   }
 
   if (source === "live-cli") {
@@ -172,7 +172,7 @@ export function localizeSignalSummary(summary: string): string {
 export function localizeRiskLine(reason: string): string {
   const exactMap: Record<string, string> = {
     "Daily KRW risk caps only apply when QUOTE_CURRENCY=KRW.": "일일 KRW 리스크 한도는 `QUOTE_CURRENCY=KRW`일 때만 적용됩니다.",
-    "READ_ACCOUNT_DATA and valid Coinone credentials are required for conservative daily-cap enforcement.": "보수적 일일 한도 적용에는 `READ_ACCOUNT_DATA`와 유효한 코인원 인증 정보가 필요합니다.",
+    "Account data and valid Coinone credentials are required for conservative daily-cap enforcement.": "보수적 일일 한도 적용에는 계좌 정보와 유효한 코인원 인증 정보가 필요합니다.",
     "A recommendation is blocked until live or mock ticker data is available for the selected target.": "선택 대상의 live 또는 mock 시세가 준비되기 전까지 추천이 차단됩니다.",
     "Sell decisions require both a current bid and a valid average entry price.": "매도 판단에는 현재 매수 1호가와 유효한 평균 진입가가 모두 필요합니다.",
     "Increase SELL_FRACTION_OF_POSITION or hold a larger balance to surface a sell suggestion.": "매도 제안을 보려면 `SELL_FRACTION_OF_POSITION`을 높이거나 더 큰 보유 수량이 필요합니다.",

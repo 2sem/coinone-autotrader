@@ -6,7 +6,13 @@ import { runTradeOnce } from "../trading/trade-once.js";
 
 import { buildManualIssueUrl, upsertGitHubIssue } from "./github-issues.js";
 import { buildIssueDraft, type ReportKind } from "./issues.js";
-import { sendSlackMessage, type SlackDeliveryResult } from "./slack.js";
+import {
+  buildSlackSuppressedResult,
+  sendSlackMessage,
+  shouldSendSlackNotification,
+  type SlackDeliveryResult,
+  type SlackNotificationEvent
+} from "./slack.js";
 
 export interface ReportRunResult {
   kind: ReportKind;
@@ -59,7 +65,10 @@ export async function runReport(kind: ReportKind, config: AppConfig): Promise<Re
   const slackMessage = githubResult.created || githubResult.updated
     ? buildReportCreatedSlackMessage(draft.displayTitle, githubResult.issueUrl, githubResult.created)
     : buildActionNeededSlackMessage(draft.displayTitle, markdownPath, manualIssueUrl, actionReasons);
-  const slack = await sendSlackMessage({ text: slackMessage, mentionHere: actionReasons.length > 0 }, config.slackWebhookUrl);
+  const slackEvent = resolveReportSlackEvent(kind, actionReasons);
+  const slack = shouldSendSlackNotification(config, slackEvent)
+    ? await sendSlackMessage({ text: slackMessage, mentionHere: actionReasons.length > 0 }, config.slackWebhookUrl)
+    : buildSlackSuppressedResult(slackEvent);
 
   return {
     kind,
@@ -121,4 +130,12 @@ function buildActionNeededSlackMessage(title: string, markdownPath: string, manu
   }
 
   return lines.join("\n");
+}
+
+function resolveReportSlackEvent(kind: ReportKind, actionReasons: string[]): SlackNotificationEvent {
+  if (actionReasons.length > 0) {
+    return "action-needed";
+  }
+
+  return kind === "daily" ? "daily-report" : "monthly-report";
 }

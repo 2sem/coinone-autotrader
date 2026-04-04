@@ -106,7 +106,7 @@ export interface TradeOnceResult {
     overrides: Record<string, StrategyProfileName>;
   };
   account: {
-    source: "live-cli" | "skipped";
+    source: "live-cli" | "unavailable";
     configured: boolean;
     balancesPreview: CoinoneBalance[];
     completedOrdersPreview: CoinoneCompletedOrder[];
@@ -282,7 +282,7 @@ function buildTradeDecisions(
         signal,
         risk,
         "Hold: balances and completed-order history are unavailable, so daily caps cannot be enforced safely.",
-        "READ_ACCOUNT_DATA and valid Coinone credentials are required for conservative daily-cap enforcement."
+        "Account data and valid Coinone credentials are required for conservative daily-cap enforcement."
       );
     }
 

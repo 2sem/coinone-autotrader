@@ -1,5 +1,5 @@
 export type SnapshotSource = "live-cli" | "mock";
-export type AccountSource = "live-cli" | "skipped";
+export type AccountSource = "live-cli" | "unavailable";
 export type DecisionAction = "buy" | "sell" | "hold";
 export type DecisionProviderName = "mock" | "openai-compatible";
 export type DecisionProviderKind = "deterministic" | "model-backed";
@@ -183,7 +183,7 @@ export function validateAgentMarketDecisionSnapshot(value: unknown): AgentMarket
   expectArray(snapshot.tickers, "snapshot.tickers").forEach((entry, index) => validateTickerSnapshot(entry, index));
 
   const account = expectRecord(snapshot.account, "snapshot.account");
-  expectEnum(account.source, ["live-cli", "skipped"], "snapshot.account.source");
+  expectEnum(account.source, ["live-cli", "unavailable"], "snapshot.account.source");
   expectBoolean(account.configured, "snapshot.account.configured");
   expectArray(account.balances, "snapshot.account.balances").forEach((entry, index) => validateBalanceSnapshot(entry, index));
   expectArray(account.completedOrders, "snapshot.account.completedOrders").forEach((entry, index) => validateCompletedOrderSnapshot(entry, index));

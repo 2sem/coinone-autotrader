@@ -29,11 +29,6 @@ on:
         description: "Maximum selected assets in auto mode"
         type: string
         default: "5"
-      read_account_data:
-        description: "Enable read-only account snapshot"
-        type: choice
-        options: ["false", "true"]
-        default: "false"
       create_github_issue:
         description: "Create a GitHub issue from the report"
         type: choice
@@ -62,7 +57,6 @@ jobs:
       AUTO_SELECTION_UNIVERSE: ${{ github.event.inputs.auto_selection_universe || vars.COINONE_AUTO_SELECTION_UNIVERSE || 'BTC,ETH,XRP,SOL' }}
       EXCLUDED_TARGETS: ${{ github.event.inputs.excluded_targets || vars.COINONE_EXCLUDED_TARGETS || '' }}
       MAX_SELECTED_ASSETS: ${{ github.event.inputs.max_selected_assets || vars.COINONE_MAX_SELECTED_ASSETS || '5' }}
-      READ_ACCOUNT_DATA: ${{ github.event.inputs.read_account_data || vars.COINONE_READ_ACCOUNT_DATA || 'false' }}
       ENABLE_LIVE_TRADING: ${{ vars.ENABLE_LIVE_TRADING || 'false' }}
       TRADING_KILL_SWITCH: ${{ vars.TRADING_KILL_SWITCH || 'false' }}
       COINONE_CLI_TIMEOUT_MS: ${{ vars.COINONE_CLI_TIMEOUT_MS || '15000' }}
