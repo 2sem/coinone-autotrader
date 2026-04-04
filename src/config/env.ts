@@ -27,6 +27,7 @@ export interface AppConfig {
   riskControls: RiskControls;
   agentDecisionProvider: AgentDecisionProviderName;
   agentDecisionOutputDir: string;
+  executionPreviewOutputDir: string;
   agentProviderRuntime: AgentProviderRuntimeConfig;
   slackWebhookUrl?: string;
   githubToken?: string;
@@ -106,6 +107,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     agentDecisionProvider: parseAgentDecisionProvider(env.AGENT_DECISION_PROVIDER),
     agentDecisionOutputDir: optionalString(env.AGENT_DECISION_OUTPUT_DIR) ?? "artifacts/agent-decision",
+    executionPreviewOutputDir: optionalString(env.EXECUTION_PREVIEW_OUTPUT_DIR) ?? "artifacts/execution-preview",
     agentProviderRuntime: {
       endpoint: parseOptionalUrl(env.AGENT_PROVIDER_ENDPOINT, "AGENT_PROVIDER_ENDPOINT"),
       apiKey: optionalString(env.AGENT_PROVIDER_API_KEY),

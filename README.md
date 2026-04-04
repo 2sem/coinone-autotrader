@@ -1,6 +1,6 @@
 # coinone-autotrader
 
-Phase 4 of the agent-driven path now sits alongside the existing dry-run trading scaffold. It keeps live trading disabled, preserves the current `trade:once` and reporting flows, and extends the agent-decision dry-run workflow with a wired OpenAI-compatible provider path, richer validated decisions, persisted dry-run execution records, and a separate workflow-report path for agent-driven runs.
+Phase 5 adds an execution-preview layer alongside the existing dry-run trading scaffold. It keeps live trading disabled, preserves the current `trade:once`, `agent:decision`, and reporting flows, and now turns real `trade:once` decisions plus live or mock Coinone data into persisted would-submit order previews with final validation results while never sending a live order.
 
 The main executable workflow remains the dry-run `trade:once` command for the current deterministic strategy engine. In parallel, `agent:decision` now builds a normalized Coinone market/account snapshot from the existing CLI-backed data layer, validates a richer buy/sell/hold decision payload, persists snapshot/decision/execution/state files under `artifacts/agent-decision`, and supports either the existing deterministic mock provider or an OpenAI-compatible model endpoint through built-in `fetch`. Reporting commands continue to reuse the dry-run snapshot, build markdown issue drafts with a vertical Mermaid workflow diagram, optionally create GitHub issues through the REST API, and notify Slack through an incoming webhook. Phase 4 keeps internal reasoning, risk, and provider metadata in English while exposing Korean user-facing summaries for CLI/reporting/Slack; report titles stay stable for exact-title dedupe.
 
@@ -11,6 +11,7 @@ The main executable workflow remains the dry-run `trade:once` command for the cu
 - Live order placement is still not implemented.
 - `agent:decision` persists inspectable JSON artifacts only; it never places orders.
 - Dry-run execution artifacts record what would have been sent for execution, but they are always blocked from live submission.
+- `execution:preview` builds would-submit order payloads and final validation results, then persists them without calling any order API.
 - Private Coinone reads stay opt-in with `READ_ACCOUNT_DATA=false` by default.
 - Missing or uncertain account data now resolves to `hold` instead of guessing.
 - Daily risk caps are enforced only from completed orders and default to `hold` when account history is unavailable.
@@ -42,6 +43,7 @@ This explicit installation contract is used instead of an npm/git package depend
 ```bash
 npm run trade:once
 npm run agent:decision
+npm run execution:preview
 ```
 
 Dry-run behavior:
@@ -51,6 +53,22 @@ Dry-run behavior:
 - `MARKET_DATA_MODE=mock`: skip all external API reads and use deterministic local fixtures.
 - When `READ_ACCOUNT_DATA=true` and Coinone credentials are configured, the run also loads balances plus up to 100 completed orders from the last 30 days through the vendored `2sem/coinone-api-cli` adapter.
 - Decision output stays conservative: cooldown blocks repeat trades, completed orders enforce `MAX_DAILY_BUY_KRW` and `MAX_TRADES_PER_DAY`, stablecoins accumulate with smaller capped buys and no sell signal, missing balance or pricing data yields `hold`, and live order placement stays disabled.
+
+## Execution Preview
+
+```bash
+MARKET_DATA_MODE=auto npm run execution:preview
+MARKET_DATA_MODE=live READ_ACCOUNT_DATA=true npm run execution:preview
+```
+
+Behavior:
+
+- Reuses the existing `trade:once` market snapshot and deterministic decision engine instead of inventing a separate strategy path.
+- Converts each non-hold decision into a realistic would-submit limit-order payload with `side`, `type`, `price`, `quantity`, `value`, and `pair`.
+- Runs final validation gates for payload completeness, allowlist membership, `MAX_ORDER_KRW`, `MIN_CASH_RESERVE_KRW`, `ENABLE_LIVE_TRADING`, `TRADING_KILL_SWITCH`, and `DRY_RUN` policy.
+- Persists `previews/latest.json` plus dated copies under `EXECUTION_PREVIEW_OUTPUT_DIR`.
+- Keeps Korean CLI summaries for operators while validation gate details remain English for debugging.
+- Never sends a live order, even if `ENABLE_LIVE_TRADING=true` and `DRY_RUN=false` are set locally.
 
 ## Agent Decision Dry Run
 
@@ -225,6 +243,7 @@ The app loads environment variables from `.env` and process environment.
 | `SELL_FRACTION_OF_POSITION` | Fraction of the held position used when sizing a sell recommendation | `0.5` |
 | `AGENT_DECISION_PROVIDER` | Agent provider implementation used by `agent:decision`: `mock` or `openai-compatible` | `mock` |
 | `AGENT_DECISION_OUTPUT_DIR` | Output directory for normalized snapshot, decision, and state files | `artifacts/agent-decision` |
+| `EXECUTION_PREVIEW_OUTPUT_DIR` | Output directory for persisted execution-preview artifacts | `artifacts/execution-preview` |
 | `AGENT_PROVIDER_ENDPOINT` | Full OpenAI-compatible chat completions endpoint used when `AGENT_DECISION_PROVIDER=openai-compatible` | empty |
 | `AGENT_PROVIDER_API_KEY` | Bearer token for the OpenAI-compatible endpoint | empty |
 | `AGENT_PROVIDER_MODEL` | Provider model identifier sent to the OpenAI-compatible endpoint and recorded into decision metadata | empty |

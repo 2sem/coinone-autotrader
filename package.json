@@ -9,6 +9,7 @@
     "coinone:install": "node scripts/install-coinone-cli.mjs",
     "coinone:doctor": "node -r dotenv/config .vendor/coinone-api-cli/dist/bin/coinone.js --json doctor",
     "agent:decision": "tsx src/cli/agent-decision.ts",
+    "execution:preview": "tsx src/cli/execution-preview.ts",
     "trade:once": "tsx src/cli/trade-once.ts",
     "report:trade-run": "node scripts/run-workflow-report.mjs trade-run",
     "report:agent-trade-run": "node scripts/run-workflow-report.mjs agent-trade-run",
