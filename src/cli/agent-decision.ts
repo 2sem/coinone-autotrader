@@ -10,8 +10,9 @@ async function main(): Promise<void> {
     [
       `[agent:decision] ${userFacing.headline}`,
       `[agent:decision] ${userFacing.summary}`,
-      `[agent:decision] 실행 기록=${result.execution.status} 차단=${result.execution.executionPlan.executionBlocked} executionId=${result.execution.executionId}`,
-      `[agent:decision] 산출물 decision=${result.output.decisionLatestPath} execution=${result.output.executionLatestPath}`
+      `[agent:decision] 실제 주문은 하지 않았고 판단 결과만 저장했습니다.`,
+      `[agent:decision] 저장 위치: 판단 ${result.output.decisionLatestPath}`,
+      `[agent:decision] 저장 위치: 실행 기록 ${result.output.executionLatestPath}`
     ].join("\n")
   );
   console.log(JSON.stringify(result, null, 2));

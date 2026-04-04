@@ -10,8 +10,9 @@ async function main(): Promise<void> {
     [
       `[execution:preview] ${result.preview.summary.headline}`,
       `[execution:preview] ${result.preview.summary.summary}`,
-      `[execution:preview] 실행 후보=${executableEntries.length}건 저장=${result.output.previewLatestPath}`,
-      `[execution:preview] 라이브 주문은 항상 차단되며 실제 전송은 수행하지 않습니다.`
+      `[execution:preview] 주문 미리보기 ${executableEntries.length}건을 저장했습니다.`,
+      `[execution:preview] 저장 위치: ${result.output.previewLatestPath}`,
+      `[execution:preview] 실제 주문은 하지 않았습니다.`
     ].join("\n")
   );
   console.log(JSON.stringify(result, null, 2));

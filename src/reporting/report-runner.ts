@@ -105,7 +105,7 @@ function buildReportCreatedSlackMessage(title: string, issueUrl: string | undefi
   const linkedTitle = issueUrl ? `<${issueUrl}|${title}>` : title;
   return [
     linkedTitle,
-    created ? "- GitHub 이슈를 생성했습니다." : "- GitHub 이슈를 업데이트했습니다."
+    created ? "- 보고서를 새로 올렸습니다." : "- 보고서를 최신 내용으로 바꿨습니다."
   ].filter(Boolean).join("\n");
 }
 
@@ -113,11 +113,11 @@ function buildActionNeededSlackMessage(title: string, markdownPath: string, manu
   const lines = [
     `${title} 확인이 필요합니다.`,
     ...reasons.map((reason) => `- ${reason}`),
-    `- 마크다운 초안 위치: ${markdownPath}`
+    `- 보고서 초안 위치: ${markdownPath}`
   ];
 
   if (manualIssueUrl) {
-    lines.push(`- 수동 이슈 생성 링크: ${manualIssueUrl}`);
+    lines.push(`- 직접 보고서를 올리려면: ${manualIssueUrl}`);
   }
 
   return lines.join("\n");

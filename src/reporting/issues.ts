@@ -47,8 +47,8 @@ export function buildIssueDraft(kind: ReportKind, result: TradeOnceResult, confi
 
 function buildIssueBody(kind: ReportKind, result: TradeOnceResult, config: AppConfig, periodLabel: string, now: Date): string {
   const cadenceNote = kind === "daily"
-    ? "해당 일자의 단일 드라이런 기준"
-    : "해당 월의 단일 드라이런 기준";
+    ? "오늘 기준으로 한 번 점검한 결과"
+    : "이번 달 기준으로 한 번 점검한 결과";
   const actionNeededLines = buildActionNeededLines(config);
   const includeActionNeededSection = shouldIncludeActionNeededSection(config, actionNeededLines);
   const selectedTargets = result.selectedTargets.length > 0 ? result.selectedTargets.join(", ") : "없음";
@@ -74,20 +74,21 @@ function buildIssueBody(kind: ReportKind, result: TradeOnceResult, config: AppCo
   return [
     `## 요약`,
     `- ${periodLabel} · ${localizeWorkflowLabel(result.workflow)} · ${cadenceNote}`,
-    `- 대상 ${selectedTargets} · 데이터 ${localizeMarketDataMode(result.marketDataMode)} / ${localizeMarketDataSource(result.marketDataSource)} · 계좌 ${result.account.configured ? "연결" : "미연결"}`,
+    `- 이번에 본 코인: ${selectedTargets}`,
+    `- 시세 기준: ${localizeMarketDataMode(result.marketDataMode)} / ${localizeMarketDataSource(result.marketDataSource)} · 계좌 확인: ${result.account.configured ? "완료" : "안 함"}`,
     `- 생성 시각: ${now.toISOString()}`,
     "",
     `## 실행 스냅샷`,
     `| 항목 | 값 |`,
     `| --- | --- |`,
-    `| 드라이런 | ${result.dryRun ? "활성화" : "비활성화"} |`,
-    `| 선택 | ${localizeSelectionMode(result.selectionMode)} / ${selectedTargets} |`,
-    `| 전략 | ${strategySummary} |`,
-    `| 한도 | 일일 ${result.riskControls.maxDailyBuyKrw} KRW · ${result.riskControls.maxTradesPerDay}회 / 포지션 ${result.riskControls.maxOpenPositions}개 |`,
-    `| 계좌 | ${localizeAccountSource(result.account.source)} / ${accountSummary} |`,
+    `| 실행 방식 | ${result.dryRun ? "모의 실행" : "실제 실행"} |`,
+    `| 코인 선택 | ${localizeSelectionMode(result.selectionMode)} / ${selectedTargets} |`,
+    `| 기본 전략 | ${strategySummary} |`,
+    `| 안전 기준 | 하루 ${result.riskControls.maxDailyBuyKrw} KRW · ${result.riskControls.maxTradesPerDay}회 / 보유 ${result.riskControls.maxOpenPositions}개 |`,
+    `| 계좌 정보 | ${localizeAccountSource(result.account.source)} / ${accountSummary} |`,
     "",
     `## 의사결정`,
-    `| 대상 | 액션 | 핵심 사유 | 주문 KRW | 메모 |`,
+    `| 코인 | 판단 | 이유 | 계산된 주문금액 | 메모 |`,
     `| --- | --- | --- | --- | --- |`,
     simplifyDecisionRows(decisionRows),
     ...(includeActionNeededSection
@@ -163,29 +164,29 @@ function simplifyDecisionRows(rows: string): string {
 
 function buildActionNeededLines(config: AppConfig): string[] {
   if (!config.githubCreateIssues) {
-    return ["- 이번 실행에서는 GitHub 이슈 자동 생성을 비활성화했으므로 마크다운 초안만 생성됩니다."];
+      return ["- 이번에는 GitHub 보고서를 자동으로 올리지 않고 초안만 만들었습니다."];
   }
 
   const missing: string[] = [];
 
   if (!config.githubRepository) {
-    missing.push("- GitHub 이슈 생성을 활성화하려면 `GITHUB_REPOSITORY=owner/repo`를 설정하세요.");
+      missing.push("- GitHub 보고서를 올릴 저장소를 먼저 정해주세요. (`GITHUB_REPOSITORY=owner/repo`)");
   }
 
   if (!config.githubToken) {
-    missing.push("- 이슈를 자동 생성하려면 repo 이슈 권한이 있는 `GITHUB_TOKEN`을 설정하세요.");
+      missing.push("- 자동 보고에 필요한 GitHub 권한을 확인해주세요.");
   }
 
   if (!config.slackWebhookUrl) {
-    missing.push("- 이슈 링크나 확인 필요 알림을 Slack으로 보내려면 `SLACK_WEBHOOK_URL`을 설정하세요.");
+      missing.push("- Slack으로 링크와 알림을 받으려면 `SLACK_WEBHOOK_URL`을 설정하세요.");
   }
 
   if (missing.length === 0) {
-    return ["- 보고서 전달에 필요한 추가 작업은 없습니다."];
+      return ["- 추가로 할 일은 없습니다."];
   }
 
   return [
-    "- 아래 설정이 없으면 자동 전달이 일부 제한됩니다:",
+    "- 아래 항목이 없으면 자동 전달이 제한될 수 있습니다:",
     ...missing
   ];
 }

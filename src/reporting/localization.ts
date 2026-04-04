@@ -8,7 +8,7 @@ export function localizeReportDisplayTitle(kind: "daily" | "monthly", periodLabe
 
 export function localizeWorkflowLabel(workflow: string): string {
   if (workflow === "dry-run only") {
-    return "드라이런 전용";
+    return "모의 실행";
   }
 
   return workflow;
@@ -16,7 +16,7 @@ export function localizeWorkflowLabel(workflow: string): string {
 
 export function localizeSelectionMode(mode: string): string {
   if (mode === "allowlist") {
-    return "허용 목록";
+    return "선택한 코인만";
   }
 
   if (mode === "auto") {
@@ -28,7 +28,7 @@ export function localizeSelectionMode(mode: string): string {
 
 export function localizeMarketDataMode(mode: string): string {
   if (mode === "mock") {
-    return "모의 데이터";
+    return "예시 데이터";
   }
 
   if (mode === "live") {
@@ -44,11 +44,11 @@ export function localizeMarketDataMode(mode: string): string {
 
 export function localizeMarketDataSource(source: string): string {
   if (source === "mock") {
-    return "모의 데이터";
+    return "예시 데이터";
   }
 
   if (source === "live-cli") {
-    return "CLI 실데이터";
+    return "실제 조회 데이터";
   }
 
   return source;
@@ -56,11 +56,11 @@ export function localizeMarketDataSource(source: string): string {
 
 export function localizeAccountSource(source: string): string {
   if (source === "skipped") {
-    return "건너뜀";
+    return "조회 안 함";
   }
 
   if (source === "live-cli") {
-    return "CLI 실데이터";
+    return "실제 계좌 조회";
   }
 
   return source;
