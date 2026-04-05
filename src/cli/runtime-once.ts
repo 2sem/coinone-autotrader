@@ -5,31 +5,60 @@ import { runRuntimeDecision, writeRuntimeDecision } from "../runtime/decide/deci
 import { runRuntimeRuleValidation, writeRuntimeRuleValidation } from "../runtime/validate/rule-validation.js";
 import { runRuntimeReview, writeRuntimeReview } from "../runtime/review/review-run.js";
 import { ensureDailyIssueAndAppendComment } from "../runtime/logging/trade-comment.js";
+import {
+  createRuntimeStatusArtifact,
+  markRuntimeStepCompleted,
+  markRuntimeStepFailed,
+  writeRuntimeStatusArtifact
+} from "../runtime/status-store.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  const snapshot = await collectRuntimeSnapshot(config);
-  await writeRuntimeSnapshot(snapshot);
-  console.log("[runtime:once] 정보 수집 완료");
+  let status = createRuntimeStatusArtifact();
+  await writeRuntimeStatusArtifact(status);
 
-  const analysis = analyzeRuntimeSnapshot(snapshot);
-  await writeRuntimeAnalysis(analysis);
-  console.log("[runtime:once] 분석 완료");
+  try {
+    const snapshot = await collectRuntimeSnapshot(config);
+    const snapshotPaths = await writeRuntimeSnapshot(snapshot);
+    status = markRuntimeStepCompleted(status, "collect:snapshot", "정보 수집 완료", snapshotPaths.latestPath);
+    await writeRuntimeStatusArtifact(status);
+    console.log("[runtime:once] 정보 수집 완료");
 
-  const decision = runRuntimeDecision(snapshot, analysis, config);
-  await writeRuntimeDecision(decision);
-  console.log("[runtime:once] 의사결정 완료");
+    const analysis = analyzeRuntimeSnapshot(snapshot);
+    const analysisPaths = await writeRuntimeAnalysis(analysis);
+    status = markRuntimeStepCompleted(status, "analyze:market", "분석 완료", analysisPaths.latestPath);
+    await writeRuntimeStatusArtifact(status);
+    console.log("[runtime:once] 분석 완료");
 
-  const validation = runRuntimeRuleValidation(snapshot, decision, config);
-  await writeRuntimeRuleValidation(validation);
-  console.log("[runtime:once] 기본 안전 규칙 점검 완료");
+    const decision = runRuntimeDecision(snapshot, analysis, config);
+    const decisionPaths = await writeRuntimeDecision(decision);
+    status = markRuntimeStepCompleted(status, "decision:run", "의사결정 완료", decisionPaths.latestPath);
+    await writeRuntimeStatusArtifact(status);
+    console.log("[runtime:once] 의사결정 완료");
 
-  const review = runRuntimeReview(snapshot, analysis, decision, validation);
-  await writeRuntimeReview(review);
-  console.log("[runtime:once] 검토 완료");
+    const validation = runRuntimeRuleValidation(snapshot, decision, config);
+    const validationPaths = await writeRuntimeRuleValidation(validation);
+    status = markRuntimeStepCompleted(status, "rule:validate", "기본 안전 규칙 점검 완료", validationPaths.latestPath);
+    await writeRuntimeStatusArtifact(status);
+    console.log("[runtime:once] 기본 안전 규칙 점검 완료");
 
-  const result = await ensureDailyIssueAndAppendComment({ config, snapshot, analysis, decision, review });
-  console.log(`[runtime:once] 일일 기록 반영 완료 (#${result.issue.issueNumber})`);
+    const review = runRuntimeReview(snapshot, analysis, decision, validation);
+    const reviewPaths = await writeRuntimeReview(review);
+    status = markRuntimeStepCompleted(status, "decision:review", "검토 완료", reviewPaths.latestPath);
+    await writeRuntimeStatusArtifact(status);
+    console.log("[runtime:once] 검토 완료");
+
+    const result = await ensureDailyIssueAndAppendComment({ config, snapshot, analysis, decision, review });
+    status = markRuntimeStepCompleted(status, "log:trade-comment", `일일 기록 반영 완료 (#${result.issue.issueNumber})`, result.paths.latestPath);
+    await writeRuntimeStatusArtifact(status);
+    console.log(`[runtime:once] 일일 기록 반영 완료 (#${result.issue.issueNumber})`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const failedStep = status.currentStep === "done" ? "log:trade-comment" : status.currentStep;
+    status = markRuntimeStepFailed(status, failedStep, message);
+    await writeRuntimeStatusArtifact(status);
+    throw error;
+  }
 }
 
 main().catch((error) => {

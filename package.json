@@ -15,6 +15,8 @@
     "decision:review": "tsx src/cli/decision-review.ts",
     "log:trade-comment": "tsx src/cli/log-trade-comment.ts",
     "runtime:once": "tsx src/cli/runtime-once.ts",
+    "report:daily-refresh": "tsx src/cli/report-daily-refresh.ts",
+    "report:weekly-refresh": "tsx src/cli/report-weekly-refresh.ts",
     "agent:decision": "tsx src/cli/agent-decision.ts",
     "execution:preview": "tsx src/cli/execution-preview.ts",
     "execution:approve": "tsx src/cli/execution-approve.ts",
