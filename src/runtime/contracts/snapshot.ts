@@ -20,6 +20,15 @@ export interface RuntimeSnapshotPosition {
   recentOrderAt?: string;
 }
 
+export interface RuntimeSnapshotFeeInfo {
+  pair: string;
+  quote: string;
+  target: string;
+  makerFeeBps?: number;
+  takerFeeBps?: number;
+  source: "fees-get" | "unavailable";
+}
+
 export interface RuntimeSnapshot {
   schemaVersion: "1";
   snapshotId: string;
@@ -43,6 +52,7 @@ export interface RuntimeSnapshot {
   portfolio: {
     positions: RuntimeSnapshotPosition[];
   };
+  fees: RuntimeSnapshotFeeInfo[];
   priorState?: {
     lastDecisionId?: string;
     lastExecutionId?: string;
@@ -77,6 +87,8 @@ export function validateRuntimeSnapshot(value: unknown): RuntimeSnapshot {
   const portfolio = expectRecord(snapshot.portfolio, "snapshot.portfolio");
   expectArray(portfolio.positions, "snapshot.portfolio.positions").forEach((entry, index) => validatePosition(entry, index));
 
+  expectArray(snapshot.fees, "snapshot.fees").forEach((entry, index) => validateFee(entry, index));
+
   if (snapshot.priorState !== undefined) {
     const priorState = expectRecord(snapshot.priorState, "snapshot.priorState");
     optionalString(priorState.lastDecisionId, "snapshot.priorState.lastDecisionId");
@@ -107,6 +119,16 @@ function validatePosition(value: unknown, index: number): void {
   optionalString(position.recentOrderAt, `snapshot.portfolio.positions[${index}].recentOrderAt`);
 }
 
+function validateFee(value: unknown, index: number): void {
+  const fee = expectRecord(value, `snapshot.fees[${index}]`);
+  expectString(fee.pair, `snapshot.fees[${index}].pair`);
+  expectString(fee.quote, `snapshot.fees[${index}].quote`);
+  expectString(fee.target, `snapshot.fees[${index}].target`);
+  optionalNumber(fee.makerFeeBps, `snapshot.fees[${index}].makerFeeBps`);
+  optionalNumber(fee.takerFeeBps, `snapshot.fees[${index}].takerFeeBps`);
+  expectEnum(fee.source, ["fees-get", "unavailable"], `snapshot.fees[${index}].source`);
+}
+
 function expectRecord(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${label} must be an object.`);
@@ -129,6 +151,18 @@ function optionalString(value: unknown, label: string): string | undefined {
   }
 
   return expectString(value, label);
+}
+
+function optionalNumber(value: unknown, label: string): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} must be a finite number.`);
+  }
+
+  return value;
 }
 
 function expectBoolean(value: unknown, label: string): boolean {

@@ -1,5 +1,6 @@
 import type { AppConfig } from "../../config/env.js";
 import { createIssueWithGh, findOpenIssueByExactTitleWithGh } from "../../reporting/github-issues.js";
+import { resolveGitHubRepository } from "../../reporting/github-repository.js";
 
 export interface RuntimeDailyIssueRef {
   issueNumber: number;
@@ -9,12 +10,10 @@ export interface RuntimeDailyIssueRef {
 }
 
 export async function ensureDailyIssue(config: AppConfig, date: Date = new Date()): Promise<RuntimeDailyIssueRef> {
-  if (!config.githubRepository) {
-    throw new Error("GITHUB_REPOSITORY is required for daily issue logging.");
-  }
+  const repository = await resolveGitHubRepository(config.githubRepository);
 
   const title = buildDailyIssueTitle(date);
-  const existing = await findOpenIssueByExactTitleWithGh(title, config.githubRepository);
+  const existing = await findOpenIssueByExactTitleWithGh(title, repository);
 
   if (existing) {
     return {
@@ -35,7 +34,7 @@ export async function ensureDailyIssue(config: AppConfig, date: Date = new Date(
       fileName: "",
       periodLabel: formatDay(date)
     },
-    config.githubRepository
+    repository
   );
 
   return {

@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 
 import type { AppConfig } from "../../config/env.js";
 import { createIssueWithGh, findOpenIssueByExactTitleWithGh, patchIssueWithGh } from "../../reporting/github-issues.js";
+import { resolveGitHubRepository } from "../../reporting/github-repository.js";
 
 const execFileAsync = promisify(execFile);
 const DAILY_TITLE_PREFIX = "[Daily] Coinone trading log - ";
@@ -16,12 +17,10 @@ export interface WeeklyRefreshResult {
 }
 
 export async function refreshWeeklyIssueBody(config: AppConfig, date: Date = new Date()): Promise<WeeklyRefreshResult> {
-  if (!config.githubRepository) {
-    throw new Error("GITHUB_REPOSITORY is required for weekly refresh.");
-  }
+  const repository = await resolveGitHubRepository(config.githubRepository);
 
-  const owner = config.githubRepository.owner;
-  const repo = config.githubRepository.name;
+  const owner = repository.owner;
+  const repo = repository.name;
   const weekRange = getKstWeekRange(date);
   const dailyIssues = (await listDailyIssues(owner, repo)).filter((issue) => {
     const parsed = parseDailyDate(issue.title);
@@ -35,18 +34,18 @@ export async function refreshWeeklyIssueBody(config: AppConfig, date: Date = new
   const totalComments = totalCommentsByIssue.reduce((sum, entry) => sum + entry.comments.length, 0);
   const title = buildWeeklyIssueTitle(date);
   const body = buildWeeklyRefreshBody(date, weekRange, totalCommentsByIssue);
-  const existing = await findOpenIssueByExactTitleWithGh(title, config.githubRepository);
+  const existing = await findOpenIssueByExactTitleWithGh(title, repository);
   const labels = ["autotrader", "weekly", "summary"];
 
   const issue = existing
     ? await patchIssueWithGh(
         existing.number,
         { kind: "daily", title, displayTitle: title, labels, body, fileName: "", periodLabel: title },
-        config.githubRepository
+        repository
       )
     : await createIssueWithGh(
         { kind: "daily", title, displayTitle: title, labels, body, fileName: "", periodLabel: title },
-        config.githubRepository
+        repository
       );
 
   return {

@@ -8,6 +8,8 @@ export type RuntimeStepName =
 
 export type RuntimeStepStatus = "pending" | "completed" | "failed" | "skipped";
 export type RuntimeRunStatus = "running" | "completed" | "failed";
+export type RuntimeWorkflowResult = "trade" | "pending" | "failed";
+export type RuntimePendingReason = "cooldown" | "approval-needed" | "balance" | "config" | "market" | "review-blocked" | "hold" | "none";
 
 export interface RuntimeStepRecord {
   name: RuntimeStepName;
@@ -23,6 +25,8 @@ export interface RuntimeStatusArtifact {
   createdAt: string;
   updatedAt: string;
   status: RuntimeRunStatus;
+  result: RuntimeWorkflowResult;
+  pendingReason: RuntimePendingReason;
   currentStep: RuntimeStepName | "done";
   failureStep?: RuntimeStepName;
   failureMessage?: string;
@@ -36,6 +40,8 @@ export function validateRuntimeStatusArtifact(value: unknown): RuntimeStatusArti
   expectString(artifact.createdAt, "status.createdAt");
   expectString(artifact.updatedAt, "status.updatedAt");
   expectEnum(artifact.status, ["running", "completed", "failed"], "status.status");
+  expectEnum(artifact.result, ["trade", "pending", "failed"], "status.result");
+  expectEnum(artifact.pendingReason, ["cooldown", "approval-needed", "balance", "config", "market", "review-blocked", "hold", "none"], "status.pendingReason");
   expectEnum(
     artifact.currentStep,
     ["collect:snapshot", "analyze:market", "decision:run", "rule:validate", "decision:review", "log:trade-comment", "done"],

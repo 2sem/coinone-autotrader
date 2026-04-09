@@ -30,6 +30,7 @@ export interface AppConfig {
   agentDecisionProvider: AgentDecisionProviderName;
   agentDecisionOutputDir: string;
   executionPreviewOutputDir: string;
+  submitAdapter: SubmitAdapterName;
   agentProviderRuntime: AgentProviderRuntimeConfig;
   slackWebhookUrl?: string;
   slackNotificationPolicy: SlackNotificationPolicy;
@@ -41,6 +42,7 @@ export interface AppConfig {
 }
 
 export type AgentDecisionProviderName = "mock" | "openai-compatible";
+export type SubmitAdapterName = "mock" | "coinone-live";
 
 export interface AgentProviderRuntimeConfig {
   endpoint?: string;
@@ -167,6 +169,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     agentDecisionProvider: parseAgentDecisionProvider(env.AGENT_DECISION_PROVIDER),
     agentDecisionOutputDir: optionalString(env.AGENT_DECISION_OUTPUT_DIR) ?? "artifacts/agent-decision",
     executionPreviewOutputDir: optionalString(env.EXECUTION_PREVIEW_OUTPUT_DIR) ?? "artifacts/execution-preview",
+    submitAdapter: parseSubmitAdapter(env.SUBMIT_ADAPTER),
     agentProviderRuntime: {
       endpoint: parseOptionalUrl(env.AGENT_PROVIDER_ENDPOINT, "AGENT_PROVIDER_ENDPOINT"),
       apiKey: optionalString(env.AGENT_PROVIDER_API_KEY),
@@ -267,6 +270,16 @@ function parseAgentDecisionProvider(value: string | undefined): AgentDecisionPro
   }
 
   throw new Error(`AGENT_DECISION_PROVIDER must be either "mock" or "openai-compatible". Received: ${value ?? ""}`);
+}
+
+function parseSubmitAdapter(value: string | undefined): SubmitAdapterName {
+  const normalized = (value ?? "mock").trim().toLowerCase();
+
+  if (normalized === "mock" || normalized === "coinone-live") {
+    return normalized;
+  }
+
+  throw new Error(`SUBMIT_ADAPTER must be either "mock" or "coinone-live". Received: ${value ?? ""}`);
 }
 
 function parseOptionalTemperature(value: string | undefined, key: string): number | undefined {

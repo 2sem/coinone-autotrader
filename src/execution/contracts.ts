@@ -8,7 +8,11 @@ export type SubmitGateName =
   | "approval-preview-match"
   | "approval-not-expired"
   | "preview-has-submittable-entry"
-  | "mock-adapter-only";
+  | "market-constraints"
+  | "submit-adapter-selected"
+  | "live-enabled"
+  | "dry-run-disabled"
+  | "kill-switch-off";
 export type SubmitGateStatus = "pass" | "fail";
 export type SubmitFinalStatus = "submitted" | "blocked";
 
@@ -113,6 +117,12 @@ export interface ExecutionSubmitEntry {
     mockOrderId: string;
     submittedAt: string;
   };
+  liveSubmission?: {
+    adapter: "coinone-live";
+    orderId?: string | null;
+    submittedAt?: string | null;
+    rawResponse: unknown;
+  };
 }
 
 export interface ExecutionSubmitArtifact {
@@ -122,7 +132,7 @@ export interface ExecutionSubmitArtifact {
   approvalId?: string;
   createdAt: string;
   workflow: "execution-submit";
-  adapter: "mock";
+  adapter: "mock" | "coinone-live";
   finalStatus: SubmitFinalStatus;
   dryRun: boolean;
   liveTradingEnabled: boolean;
@@ -204,7 +214,7 @@ export function validateExecutionSubmitArtifact(value: unknown): ExecutionSubmit
 
   expectString(artifact.createdAt, "submit.createdAt");
   expectLiteral(artifact.workflow, "execution-submit", "submit.workflow");
-  expectLiteral(artifact.adapter, "mock", "submit.adapter");
+  expectEnum(artifact.adapter, ["mock", "coinone-live"], "submit.adapter");
   expectEnum(artifact.finalStatus, ["submitted", "blocked"], "submit.finalStatus");
   expectBoolean(artifact.dryRun, "submit.dryRun");
   expectBoolean(artifact.liveTradingEnabled, "submit.liveTradingEnabled");
@@ -217,11 +227,15 @@ export function validateExecutionSubmitArtifact(value: unknown): ExecutionSubmit
       [
         "preview-schema",
         "approval-present",
-        "approval-preview-match",
-        "approval-not-expired",
-        "preview-has-submittable-entry",
-        "mock-adapter-only"
-      ],
+          "approval-preview-match",
+          "approval-not-expired",
+          "preview-has-submittable-entry",
+          "market-constraints",
+          "submit-adapter-selected",
+          "live-enabled",
+          "dry-run-disabled",
+          "kill-switch-off"
+        ],
       `submit.gates[${index}].name`
     );
     expectEnum(record.status, ["pass", "fail"], `submit.gates[${index}].status`);
@@ -246,6 +260,20 @@ export function validateExecutionSubmitArtifact(value: unknown): ExecutionSubmit
       expectLiteral(mockSubmission.adapter, "mock", `submit.submittedEntries[${index}].mockSubmission.adapter`);
       expectString(mockSubmission.mockOrderId, `submit.submittedEntries[${index}].mockSubmission.mockOrderId`);
       expectString(mockSubmission.submittedAt, `submit.submittedEntries[${index}].mockSubmission.submittedAt`);
+    }
+
+    if (record.liveSubmission !== undefined) {
+      const liveSubmission = expectRecord(record.liveSubmission, `submit.submittedEntries[${index}].liveSubmission`);
+      expectLiteral(liveSubmission.adapter, "coinone-live", `submit.submittedEntries[${index}].liveSubmission.adapter`);
+      if (liveSubmission.orderId !== undefined && liveSubmission.orderId !== null) {
+        expectString(liveSubmission.orderId, `submit.submittedEntries[${index}].liveSubmission.orderId`);
+      }
+      if (liveSubmission.submittedAt !== undefined && liveSubmission.submittedAt !== null) {
+        expectString(liveSubmission.submittedAt, `submit.submittedEntries[${index}].liveSubmission.submittedAt`);
+      }
+      if (liveSubmission.rawResponse === undefined) {
+        throw new Error(`submit.submittedEntries[${index}].liveSubmission.rawResponse must be present.`);
+      }
     }
   });
 

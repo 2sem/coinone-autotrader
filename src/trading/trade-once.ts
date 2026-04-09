@@ -183,7 +183,7 @@ export async function runTradeOnce(config: AppConfig): Promise<TradeOnceResult> 
     },
     portfolio,
     decisions,
-    workflow: "dry-run only",
+    workflow: config.dryRun ? "simulation-only" : "live-ready decisioning",
     notes: [
       ...marketSnapshot.notes,
       ...selectionPlan.notes,
@@ -196,14 +196,13 @@ export async function runTradeOnce(config: AppConfig): Promise<TradeOnceResult> 
       `Portfolio caps: MAX_OPEN_POSITIONS=${config.riskControls.maxOpenPositions}, MAX_PORTFOLIO_EXPOSURE_PCT=${formatPercent(config.riskControls.maxPortfolioExposurePct)}.`,
       config.enableLiveTrading
         ? config.tradingKillSwitch
-          ? "ENABLE_LIVE_TRADING=true but TRADING_KILL_SWITCH=true, so any future live execution path would remain blocked."
-          : "ENABLE_LIVE_TRADING=true is configured, but this repository still remains dry-run only until a guarded live adapter is added."
+          ? "ENABLE_LIVE_TRADING=true but TRADING_KILL_SWITCH=true, so execution remains blocked."
+          : "ENABLE_LIVE_TRADING=true is configured and a guarded live adapter is available for explicit submit flows."
         : "ENABLE_LIVE_TRADING=false keeps future live execution paths blocked by default.",
       decisions.every((decision) => decision.action === "hold")
         ? "Decision engine stayed fully conservative and recommended hold for every selected target."
         : "Decision engine produced deterministic buy/sell/hold recommendations without placing orders.",
-      "Live order placement remains intentionally disabled.",
-      config.dryRun ? "DRY_RUN is enabled; no external side effects are allowed." : "DRY_RUN is disabled, but execution still remains simulation-only."
+      config.dryRun ? "DRY_RUN is enabled; no external side effects are allowed." : "DRY_RUN is disabled; explicit submit flows may proceed after preview, approval, and final safety gates."
     ]
   };
 }

@@ -12,15 +12,20 @@ const DEFAULT_OUTPUT_DIR = "artifacts/runtime";
 export function runRuntimeDecision(snapshot: RuntimeSnapshot, analysis: RuntimeAnalysis, config: AppConfig): RuntimeDecision {
   const createdAt = new Date().toISOString();
   const primaryCandidate = analysis.candidateTargets[0];
+  const primaryFeeProfile = analysis.feeProfiles.find((profile) => profile.target === primaryCandidate?.target);
   const primaryPosition = snapshot.portfolio.positions.find((position) => position.target === primaryCandidate?.target);
   const availableKrw = Number(snapshot.account.availableKrw) || 0;
   const heldQuantity = Number(primaryPosition?.heldQuantity) || 0;
+  const recentOrderRecencyMinutes = primaryPosition?.recentOrderAt ? computeRecencyMinutes(primaryPosition.recentOrderAt, createdAt) : undefined;
+  const cooldownActive = recentOrderRecencyMinutes !== undefined && recentOrderRecencyMinutes < config.riskControls.cooldownMinutes;
   const conservativeBudget = Math.max(0, Math.min(config.riskControls.maxOrderKrw, availableKrw * config.riskControls.buyFractionOfCash));
   const stablecoinBias = snapshot.market.selectedTargets.some((target) => config.stablecoinTargets.includes(target));
   const shouldBuy =
     snapshot.account.configured &&
     primaryCandidate?.bias === "buy" &&
     heldQuantity === 0 &&
+    !cooldownActive &&
+    primaryFeeProfile?.preset !== "standard-net-profit" &&
     conservativeBudget >= 10000;
   const shouldSell = snapshot.account.configured && primaryCandidate?.bias === "sell" && heldQuantity > 0;
   const action = shouldBuy ? "buy" : shouldSell ? "sell" : "hold";
@@ -47,11 +52,16 @@ export function runRuntimeDecision(snapshot: RuntimeSnapshot, analysis: RuntimeA
     createdAt,
     action,
     target: primaryCandidate?.target,
-    confidence: shouldBuy ? primaryCandidate.confidence : shouldSell ? Math.max(primaryCandidate?.confidence ?? 0.4, 0.55) : 0.4,
-    thesis: buildThesis(action, stablecoinBias),
+    confidence: shouldBuy ? primaryCandidate.confidence : shouldSell ? Math.max(primaryCandidate?.confidence ?? 0.4, 0.55) : cooldownActive ? 0.7 : 0.4,
+    strategyPreset: primaryFeeProfile?.preset ?? "standard-net-profit",
+    estimatedMakerFeeBps: primaryFeeProfile?.makerFeeBps,
+    estimatedTakerFeeBps: primaryFeeProfile?.takerFeeBps,
+    thesis: buildThesis(action, stablecoinBias, cooldownActive, primaryFeeProfile?.preset),
     reasoningEn: buildDecisionPrompt(snapshot, analysis, config),
-    userSummaryKo: buildUserSummary(action, primaryCandidate?.target, snapshot.account.configured),
-    riskNotes: analysis.risks,
+    userSummaryKo: buildUserSummary(action, primaryCandidate?.target, snapshot.account.configured, cooldownActive, config.riskControls.cooldownMinutes, recentOrderRecencyMinutes),
+    riskNotes: cooldownActive
+      ? [...analysis.risks, `Cooldown remains active for ${config.riskControls.cooldownMinutes - (recentOrderRecencyMinutes ?? 0)} more minutes.`]
+      : analysis.risks,
     executionPlan: {
       mode: action === "hold" ? "none" : action === "buy" ? "ladder" : "single",
       totalOrderValueKrw,
@@ -100,7 +110,24 @@ function buildLadderEntries(totalOrderValueKrw: number, splitCount: number) {
   }));
 }
 
-function buildThesis(action: RuntimeDecision["action"], stablecoinBias: boolean): string {
+function buildThesis(
+  action: RuntimeDecision["action"],
+  stablecoinBias: boolean,
+  cooldownActive: boolean,
+  strategyPreset: RuntimeDecision["strategyPreset"] | undefined
+): string {
+  if (cooldownActive) {
+    return "cooldown protection";
+  }
+
+  if (strategyPreset === "zero-fee-grid") {
+    return action === "hold" ? "zero-fee grid pause" : "zero-fee grid rotation";
+  }
+
+  if (strategyPreset === "low-fee-balance") {
+    return action === "hold" ? "low-fee balance wait" : "low-fee balanced rotation";
+  }
+
   if (action === "buy") {
     return stablecoinBias ? "stablecoin ladder accumulation" : "conservative split entry";
   }
@@ -112,9 +139,21 @@ function buildThesis(action: RuntimeDecision["action"], stablecoinBias: boolean)
   return "wait for clearer setup";
 }
 
-function buildUserSummary(action: RuntimeDecision["action"], target: string | undefined, accountConfigured: boolean): string {
+function buildUserSummary(
+  action: RuntimeDecision["action"],
+  target: string | undefined,
+  accountConfigured: boolean,
+  cooldownActive: boolean,
+  cooldownMinutes: number,
+  recentOrderRecencyMinutes: number | undefined
+): string {
   if (!accountConfigured) {
     return "계좌 정보를 충분히 확인하지 못해 이번 판단은 보류했습니다.";
+  }
+
+  if (cooldownActive) {
+    const remaining = Math.max(0, cooldownMinutes - (recentOrderRecencyMinutes ?? 0));
+    return `${target ?? "선택 코인"}은 최근 체결 이후 쿨다운이 ${remaining}분 남아 있어 이번에는 기다립니다.`;
   }
 
   if (action === "buy") {
@@ -126,6 +165,16 @@ function buildUserSummary(action: RuntimeDecision["action"], target: string | un
   }
 
   return "이번에는 매수나 매도보다 보류가 더 안전하다고 판단했습니다.";
+}
+
+function computeRecencyMinutes(previousAt: string, currentAt: string): number | undefined {
+  const previous = Date.parse(previousAt);
+  const current = Date.parse(currentAt);
+  if (!Number.isFinite(previous) || !Number.isFinite(current) || current < previous) {
+    return undefined;
+  }
+
+  return Math.floor((current - previous) / 60000);
 }
 
 function roundKrw(value: number): number {

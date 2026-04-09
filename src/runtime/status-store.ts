@@ -22,6 +22,8 @@ export function createRuntimeStatusArtifact(createdAt = new Date().toISOString()
     createdAt,
     updatedAt: createdAt,
     status: "running",
+    result: "pending",
+    pendingReason: "none",
     currentStep: STEP_ORDER[0],
     steps: STEP_ORDER.map<RuntimeStepRecord>((name) => ({ name, status: "pending" }))
   });
@@ -51,6 +53,16 @@ export function markRuntimeStepCompleted(
   });
 }
 
+export function finalizeRuntimeResult(
+  artifact: RuntimeStatusArtifact,
+  input: { result: RuntimeStatusArtifact["result"]; pendingReason: RuntimeStatusArtifact["pendingReason"] }
+): RuntimeStatusArtifact {
+  return updateArtifact(artifact, (draft) => {
+    draft.result = input.result;
+    draft.pendingReason = input.pendingReason;
+  });
+}
+
 export function markRuntimeStepFailed(
   artifact: RuntimeStatusArtifact,
   step: RuntimeStepName,
@@ -72,6 +84,8 @@ export function markRuntimeStepFailed(
     }
 
     draft.status = "failed";
+    draft.result = "failed";
+    draft.pendingReason = "none";
     draft.currentStep = step;
     draft.failureStep = step;
     draft.failureMessage = errorMessage;
