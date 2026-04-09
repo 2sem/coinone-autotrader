@@ -115,7 +115,7 @@ jobs:
     needs: collect
     runs-on: ubuntu-latest
     env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -152,7 +152,7 @@ jobs:
       - name: OpenCode decision
         uses: anomalyco/opencode/github@latest
         with:
-          model: ${{ vars.OPENCODE_MODEL || 'openai/gpt-5.4' }}
+          model: ${{ vars.OPENCODE_MODEL || 'opencode/gpt-5-nano' }}
           prompt: ${{ env.OPENCODE_DECISION_PROMPT }}
 
       - run: npm run rule:validate
@@ -168,7 +168,7 @@ jobs:
       - name: OpenCode review
         uses: anomalyco/opencode/github@latest
         with:
-          model: ${{ vars.OPENCODE_MODEL || 'openai/gpt-5.4' }}
+          model: ${{ vars.OPENCODE_MODEL || 'opencode/gpt-5-nano' }}
           prompt: ${{ env.OPENCODE_REVIEW_PROMPT }}
 
       - uses: actions/upload-artifact@v4
