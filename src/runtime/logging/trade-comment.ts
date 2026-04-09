@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type { AppConfig } from "../../config/env.js";
 import { buildRunId } from "../../agent/snapshot.js";
+import { resolveGitHubRepository } from "../../reporting/github-repository.js";
 import type { RuntimeAnalysis, RuntimeDecision, RuntimeReview, RuntimeSnapshot, RuntimeTradeComment } from "../contracts/index.js";
 import { validateRuntimeTradeComment } from "../contracts/index.js";
 import { ensureDailyIssue, type RuntimeDailyIssueRef } from "./daily-issue.js";
@@ -45,9 +46,7 @@ export function buildTradeComment(input: {
 }
 
 export async function appendTradeComment(config: AppConfig, comment: RuntimeTradeComment): Promise<void> {
-  if (!config.githubRepository) {
-    throw new Error("GITHUB_REPOSITORY is required for trade comments.");
-  }
+  const repository = await resolveGitHubRepository(config.githubRepository);
 
   // gh CLI path only
   const { execFile } = await import("node:child_process");
@@ -55,12 +54,12 @@ export async function appendTradeComment(config: AppConfig, comment: RuntimeTrad
   const execFileAsync = promisify(execFile);
 
   await execFileAsync(
-    "gh",
-    [
-      "api",
-      `repos/${config.githubRepository.owner}/${config.githubRepository.name}/issues/${comment.issueNumber}/comments`,
-      "--method",
-      "POST",
+      "gh",
+      [
+        "api",
+        `repos/${repository.owner}/${repository.name}/issues/${comment.issueNumber}/comments`,
+        "--method",
+        "POST",
       "-f",
       `body=${comment.bodyMarkdown}`
     ],

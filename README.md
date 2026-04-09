@@ -13,7 +13,7 @@ The main executable workflow remains the dry-run `trade:once` command for the cu
 - Dry-run execution artifacts record what would have been sent for execution, but they are always blocked from live submission.
 - `execution:preview` builds would-submit order payloads and final validation results, then persists them without calling any order API.
 - `execution:approve` binds a short-lived manual approval to exactly one `previewId` and persists it for audit.
-- `execution:submit` fails closed unless preview, approval, and final safety gates all pass; the current adapter is mock-only and never sends a live order.
+- `execution:submit` fails closed unless preview, approval, and final safety gates all pass; `SUBMIT_ADAPTER=mock` stays the default.
 - Coinone 계좌 정보는 판단에 항상 포함되며, 읽지 못하면 보수적으로 `hold` 처리합니다.
 - Missing or uncertain account data now resolves to `hold` instead of guessing.
 - Daily risk caps are enforced only from completed orders and default to `hold` when account history is unavailable.
@@ -34,7 +34,7 @@ npm run coinone:install
 npm run coinone:doctor
 ```
 
-`npm run coinone:install` clones `2sem/coinone-api-cli` into `.vendor/coinone-api-cli`, checks out pinned commit `e393f970ceff3c0af5bc03c4153b03458485b689` (`1.0.2`), installs its dependencies, and builds the local CLI entrypoint used by this project.
+`npm run coinone:install` clones `2sem/coinone-api-cli` into `.vendor/coinone-api-cli`, checks out pinned commit `957f6733162021d0cfe12a5cdab61daafc577f21` (latest upstream `main` with the live order fix for issue #9), installs its dependencies, and builds the local CLI entrypoint used by this project.
 
 This explicit installation contract is used instead of an npm/git package dependency because the upstream repository currently does not publish build artifacts in a directly consumable package form.
 
@@ -94,7 +94,9 @@ Behavior:
 - `execution:submit` validates preview schema, approval presence, preview/approval ID match, approval expiry, and whether the preview contains at least one submittable entry.
 - Submit attempts fail closed when approval is missing, expired, or linked to another preview.
 - Submit artifacts are written to `submits/latest.json` plus dated copies even when the submit is blocked.
-- The current submit adapter is intentionally `mock` only, so successful submit runs record mock order IDs and never place a real Coinone order.
+- `SUBMIT_ADAPTER=mock` records mock order IDs and never places a real Coinone order.
+- `SUBMIT_ADAPTER=coinone-live` can submit a real Coinone limit order, but only when `ENABLE_LIVE_TRADING=true`, `DRY_RUN=false`, and `TRADING_KILL_SWITCH=false` all hold.
+- For the first live test, keep `SELECTION_MODE=allowlist`, `TRADE_TARGETS=USDC`, and a very small `MAX_ORDER_KRW`.
 
 ## Agent Decision Dry Run
 
@@ -243,7 +245,7 @@ The app loads environment variables from `.env` and process environment.
 | `TRADING_KILL_SWITCH` | Emergency stop for any future live execution path | `false` |
 | `QUOTE_CURRENCY` | Quote currency used for markets | `KRW` |
 | `MARKET_DATA_MODE` | `auto`, `live`, or `mock` market-data source | `auto` |
-| `COINONE_CLI_PATH` | Optional path to `coinone` executable or built JS entrypoint | auto-detect `.vendor/...` then `coinone` |
+| `COINONE_CLI_PATH` | Optional path to `coinone` executable or built JS entrypoint | auto-detect `which coinone`, then `.vendor/...` fallback |
 | `COINONE_CLI_TIMEOUT_MS` | Timeout for each local CLI invocation | `15000` |
 | `COINONE_CLI_BASE_URL` | Optional Coinone-compatible base URL for mocks/proxies | empty |
 | `SELECTION_MODE` | Asset selection strategy: `allowlist` or `auto` | `allowlist` |

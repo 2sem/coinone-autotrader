@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 
 import type { AppConfig } from "../../config/env.js";
 import { patchIssueWithGh } from "../../reporting/github-issues.js";
+import { resolveGitHubRepository } from "../../reporting/github-repository.js";
 import { buildDailyIssueTitle, ensureDailyIssue } from "../logging/daily-issue.js";
 
 const execFileAsync = promisify(execFile);
@@ -16,12 +17,10 @@ export interface DailyRefreshResult {
 }
 
 export async function refreshDailyIssueBody(config: AppConfig, date: Date = new Date()): Promise<DailyRefreshResult> {
-  if (!config.githubRepository) {
-    throw new Error("GITHUB_REPOSITORY is required for daily refresh.");
-  }
+  const repository = await resolveGitHubRepository(config.githubRepository);
 
   const issue = await ensureDailyIssue(config, date);
-  const comments = await listIssueComments(config.githubRepository.owner, config.githubRepository.name, issue.issueNumber);
+  const comments = await listIssueComments(repository.owner, repository.name, issue.issueNumber);
   const body = buildDailyRefreshBody(date, comments);
 
   await patchIssueWithGh(
@@ -35,7 +34,7 @@ export async function refreshDailyIssueBody(config: AppConfig, date: Date = new 
       fileName: "",
       periodLabel: formatDay(date)
     },
-    config.githubRepository
+    repository
   );
 
   return {

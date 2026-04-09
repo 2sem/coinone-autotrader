@@ -4,6 +4,7 @@ import path from "node:path";
 import { buildRunId } from "../../agent/snapshot.js";
 import type { RuntimeAnalysis, RuntimeAnalysisCandidate, RuntimePortfolioState, RuntimeSnapshot } from "../contracts/index.js";
 import { validateRuntimeAnalysis, validateRuntimeSnapshot } from "../contracts/index.js";
+import { resolveStrategyPreset } from "../strategy/presets.js";
 
 const DEFAULT_OUTPUT_DIR = "artifacts/runtime";
 
@@ -12,6 +13,13 @@ export function analyzeRuntimeSnapshot(snapshot: RuntimeSnapshot): RuntimeAnalys
   const marketRegime = determineMarketRegime(snapshot);
   const portfolioState = determinePortfolioState(snapshot);
   const candidateTargets = buildCandidateTargets(snapshot, portfolioState);
+  const feeProfiles = snapshot.fees.map((fee) => ({
+    target: fee.target,
+    pair: fee.pair,
+    makerFeeBps: fee.makerFeeBps,
+    takerFeeBps: fee.takerFeeBps,
+    preset: resolveStrategyPreset({ makerFeeBps: fee.makerFeeBps, takerFeeBps: fee.takerFeeBps })
+  }));
   const risks = buildRiskNotes(snapshot, portfolioState, marketRegime);
 
   return validateRuntimeAnalysis({
@@ -22,9 +30,10 @@ export function analyzeRuntimeSnapshot(snapshot: RuntimeSnapshot): RuntimeAnalys
     marketRegime,
     portfolioState,
     candidateTargets,
+    feeProfiles,
     risks,
     analysisSummaryEn: buildEnglishSummary(snapshot, marketRegime, portfolioState, candidateTargets, risks),
-    userSummaryKo: buildKoreanSummary(snapshot, marketRegime, portfolioState, candidateTargets)
+    userSummaryKo: buildKoreanSummary(snapshot, marketRegime, portfolioState, candidateTargets, feeProfiles)
   });
 }
 
@@ -174,11 +183,17 @@ function buildEnglishSummary(
   const candidateSummary = candidateTargets.length > 0
     ? candidateTargets.map((candidate) => `${candidate.target}:${candidate.bias}`).join(", ")
     : "no candidates";
+  const feeSummary = snapshot.fees.length > 0
+    ? snapshot.fees
+        .map((fee) => `${fee.target}:${resolveStrategyPreset({ makerFeeBps: fee.makerFeeBps, takerFeeBps: fee.takerFeeBps })}`)
+        .join(", ")
+    : "no fee profile";
 
   return [
     `Market regime=${marketRegime}.`,
     `Portfolio state=${portfolioState}.`,
     `Candidates=${candidateSummary}.`,
+    `Fee presets=${feeSummary}.`,
     risks.length > 0 ? `Risks=${risks.join(" ")}` : "No material runtime risks flagged."
   ].join(" ");
 }
@@ -187,7 +202,8 @@ function buildKoreanSummary(
   snapshot: RuntimeSnapshot,
   marketRegime: RuntimeAnalysis["marketRegime"],
   portfolioState: RuntimePortfolioState,
-  candidateTargets: RuntimeAnalysisCandidate[]
+  candidateTargets: RuntimeAnalysisCandidate[],
+  feeProfiles: RuntimeAnalysis["feeProfiles"]
 ): string {
   const buyCandidates = candidateTargets.filter((candidate) => candidate.bias === "buy").map((candidate) => candidate.target);
 
@@ -195,11 +211,27 @@ function buildKoreanSummary(
     return "계좌 인증 정보를 읽지 못해 이번 분석은 보수적으로 유지했습니다.";
   }
 
+  const feeSummary = feeProfiles.length > 0
+    ? feeProfiles.map((profile) => `${profile.target}:${localizePreset(profile.preset)}`).join(", ")
+    : "수수료 정보를 확인하지 못해 보수형 전략을 유지합니다.";
+
   if (buyCandidates.length > 0) {
-    return `${buyCandidates.join(", ")}는 현재 신규 진입 후보로 볼 수 있습니다. 시장 상태는 ${localizeMarketRegime(marketRegime)}, 포트폴리오 상태는 ${localizePortfolioState(portfolioState)}입니다.`;
+    return `${buyCandidates.join(", ")}는 현재 신규 진입 후보로 볼 수 있습니다. 시장 상태는 ${localizeMarketRegime(marketRegime)}, 포트폴리오 상태는 ${localizePortfolioState(portfolioState)}이며, 수수료 기준 전략은 ${feeSummary}입니다.`;
   }
 
-  return `이번 분석에서는 뚜렷한 신규 진입 후보보다 ${localizePortfolioState(portfolioState)} 상태 점검이 더 중요합니다.`;
+  return `이번 분석에서는 뚜렷한 신규 진입 후보보다 ${localizePortfolioState(portfolioState)} 상태 점검이 더 중요합니다. 수수료 기준 전략은 ${feeSummary}입니다.`;
+}
+
+function localizePreset(preset: RuntimeAnalysis["feeProfiles"][number]["preset"]): string {
+  if (preset === "zero-fee-grid") {
+    return "수수료 0 전용 그리드";
+  }
+
+  if (preset === "low-fee-balance") {
+    return "저수수료 균형형";
+  }
+
+  return "순이익 우선형";
 }
 
 function localizeMarketRegime(regime: RuntimeAnalysis["marketRegime"]): string {

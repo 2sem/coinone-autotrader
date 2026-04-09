@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
 const CLI_REPO_URL = "https://github.com/2sem/coinone-api-cli.git";
-const CLI_COMMIT = "e393f970ceff3c0af5bc03c4153b03458485b689";
+const CLI_COMMIT = "957f6733162021d0cfe12a5cdab61daafc577f21";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");

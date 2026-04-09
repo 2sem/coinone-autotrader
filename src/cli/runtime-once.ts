@@ -7,6 +7,7 @@ import { runRuntimeReview, writeRuntimeReview } from "../runtime/review/review-r
 import { ensureDailyIssueAndAppendComment } from "../runtime/logging/trade-comment.js";
 import {
   createRuntimeStatusArtifact,
+  finalizeRuntimeResult,
   markRuntimeStepCompleted,
   markRuntimeStepFailed,
   writeRuntimeStatusArtifact
@@ -50,8 +51,10 @@ async function main(): Promise<void> {
 
     const result = await ensureDailyIssueAndAppendComment({ config, snapshot, analysis, decision, review });
     status = markRuntimeStepCompleted(status, "log:trade-comment", `일일 기록 반영 완료 (#${result.issue.issueNumber})`, result.paths.latestPath);
+    status = finalizeRuntimeResult(status, classifyRuntimeResult(decision, review));
     await writeRuntimeStatusArtifact(status);
     console.log(`[runtime:once] 일일 기록 반영 완료 (#${result.issue.issueNumber})`);
+    console.log(`[runtime:once] 최종 결과: ${status.result}${status.result === "pending" ? ` (${status.pendingReason})` : ""}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const failedStep = status.currentStep === "done" ? "log:trade-comment" : status.currentStep;
@@ -66,3 +69,27 @@ main().catch((error) => {
   console.error(`[runtime:once] ${message}`);
   process.exitCode = 1;
 });
+
+function classifyRuntimeResult(
+  decision: { action: "buy" | "sell" | "hold"; userSummaryKo: string },
+  review: { approved: boolean; operatorActionRequired: boolean }
+): { result: "trade" | "pending"; pendingReason: "cooldown" | "approval-needed" | "review-blocked" | "hold" | "none" } {
+  if (!review.approved) {
+    return {
+      result: "pending",
+      pendingReason: review.operatorActionRequired ? "approval-needed" : "review-blocked"
+    };
+  }
+
+  if (decision.action === "hold") {
+    return {
+      result: "pending",
+      pendingReason: decision.userSummaryKo.includes("쿨다운") || decision.userSummaryKo.includes("대기") ? "cooldown" : "hold"
+    };
+  }
+
+  return {
+    result: "trade",
+    pendingReason: "none"
+  };
+}

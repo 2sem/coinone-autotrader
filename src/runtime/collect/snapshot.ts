@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type { AppConfig } from "../../config/env.js";
 import { buildRunId } from "../../agent/snapshot.js";
+import { CoinoneCliAdapter } from "../../adapters/coinone-cli.js";
 import { loadMarketSnapshot } from "../../trading/market-data.js";
 import { resolveSelectionPlan } from "../../trading/selection.js";
 import { validateRuntimeSnapshot, type RuntimeSnapshot } from "../contracts/index.js";
@@ -11,6 +12,7 @@ const DEFAULT_OUTPUT_DIR = "artifacts/runtime";
 
 export async function collectRuntimeSnapshot(config: AppConfig): Promise<RuntimeSnapshot> {
   const marketSnapshot = await loadMarketSnapshot(config);
+  const cliAdapter = new CoinoneCliAdapter(config);
   const selectionPlan = resolveSelectionPlan(config, {
     availableTargets: marketSnapshot.markets.map((market) => market.target),
     rankedTargets: marketSnapshot.rankedTargets
@@ -33,6 +35,23 @@ export async function collectRuntimeSnapshot(config: AppConfig): Promise<Runtime
   }
 
   const createdAt = new Date().toISOString();
+  const fees = await Promise.all(
+    selectionPlan.targets.map(async (target) => {
+      try {
+        return await cliAdapter.getFee({ quoteCurrency: config.quoteCurrency, targetCurrency: target });
+      } catch (error) {
+        return {
+          pair: `${target}/${config.quoteCurrency}`,
+          quote: config.quoteCurrency,
+          target,
+          source: "unavailable" as const,
+          makerFeeBps: undefined,
+          takerFeeBps: undefined
+        };
+      }
+    })
+  );
+
   return validateRuntimeSnapshot({
     schemaVersion: "1",
     snapshotId: buildRunId("runtime-snapshot", createdAt),
@@ -79,7 +98,8 @@ export async function collectRuntimeSnapshot(config: AppConfig): Promise<Runtime
           recentOrderAt: completedOrdersByTarget.get(target)
         };
       })
-    }
+    },
+    fees
   });
 }
 

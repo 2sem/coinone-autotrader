@@ -20,6 +20,9 @@ export interface RuntimeDecision {
   action: RuntimeDecisionAction;
   target?: string;
   confidence: number;
+  strategyPreset: "zero-fee-grid" | "low-fee-balance" | "standard-net-profit";
+  estimatedMakerFeeBps?: number;
+  estimatedTakerFeeBps?: number;
   thesis: string;
   reasoningEn: string;
   userSummaryKo: string;
@@ -44,6 +47,9 @@ export function validateRuntimeDecision(value: unknown): RuntimeDecision {
   expectEnum(decision.action, ["buy", "sell", "hold"], "decision.action");
   optionalString(decision.target, "decision.target");
   expectConfidence(decision.confidence, "decision.confidence");
+  expectEnum(decision.strategyPreset, ["zero-fee-grid", "low-fee-balance", "standard-net-profit"], "decision.strategyPreset");
+  optionalNumber(decision.estimatedMakerFeeBps, "decision.estimatedMakerFeeBps", 0);
+  optionalNumber(decision.estimatedTakerFeeBps, "decision.estimatedTakerFeeBps", 0);
   expectString(decision.thesis, "decision.thesis");
   expectString(decision.reasoningEn, "decision.reasoningEn");
   expectString(decision.userSummaryKo, "decision.userSummaryKo");

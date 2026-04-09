@@ -10,6 +10,14 @@ export interface RuntimeAnalysisCandidate {
   summaryKo: string;
 }
 
+export interface RuntimeAnalysisFeeProfile {
+  target: string;
+  pair: string;
+  makerFeeBps?: number;
+  takerFeeBps?: number;
+  preset: "zero-fee-grid" | "low-fee-balance" | "standard-net-profit";
+}
+
 export interface RuntimeAnalysis {
   schemaVersion: "1";
   analysisId: string;
@@ -18,6 +26,7 @@ export interface RuntimeAnalysis {
   marketRegime: RuntimeMarketRegime;
   portfolioState: RuntimePortfolioState;
   candidateTargets: RuntimeAnalysisCandidate[];
+  feeProfiles: RuntimeAnalysisFeeProfile[];
   risks: string[];
   analysisSummaryEn: string;
   userSummaryKo: string;
@@ -33,11 +42,25 @@ export function validateRuntimeAnalysis(value: unknown): RuntimeAnalysis {
   expectEnum(analysis.marketRegime, ["range", "trend-up", "trend-down", "unclear"], "analysis.marketRegime");
   expectEnum(analysis.portfolioState, ["flat", "light", "loaded", "overexposed"], "analysis.portfolioState");
   expectArray(analysis.candidateTargets, "analysis.candidateTargets").forEach((entry, index) => validateCandidate(entry, index));
+  expectArray(analysis.feeProfiles, "analysis.feeProfiles").forEach((entry, index) => validateFeeProfile(entry, index));
   expectStringArray(analysis.risks, "analysis.risks");
   expectString(analysis.analysisSummaryEn, "analysis.analysisSummaryEn");
   expectString(analysis.userSummaryKo, "analysis.userSummaryKo");
 
   return analysis as unknown as RuntimeAnalysis;
+}
+
+function validateFeeProfile(value: unknown, index: number): void {
+  const feeProfile = expectRecord(value, `analysis.feeProfiles[${index}]`);
+  expectString(feeProfile.target, `analysis.feeProfiles[${index}].target`);
+  expectString(feeProfile.pair, `analysis.feeProfiles[${index}].pair`);
+  optionalNumber(feeProfile.makerFeeBps, `analysis.feeProfiles[${index}].makerFeeBps`);
+  optionalNumber(feeProfile.takerFeeBps, `analysis.feeProfiles[${index}].takerFeeBps`);
+  expectEnum(
+    feeProfile.preset,
+    ["zero-fee-grid", "low-fee-balance", "standard-net-profit"],
+    `analysis.feeProfiles[${index}].preset`
+  );
 }
 
 function validateCandidate(value: unknown, index: number): void {
@@ -60,6 +83,18 @@ function expectRecord(value: unknown, label: string): Record<string, unknown> {
 function expectString(value: unknown, label: string): string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`${label} must be a non-empty string.`);
+  }
+
+  return value;
+}
+
+function optionalNumber(value: unknown, label: string): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} must be a finite number.`);
   }
 
   return value;

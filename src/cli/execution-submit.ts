@@ -18,11 +18,14 @@ async function main(): Promise<void> {
     [
       `[execution:submit] ${result.submit.summary.headline}`,
       `[execution:submit] ${result.submit.summary.summary}`,
+      `[execution:submit] 제출 어댑터: ${result.submit.adapter}`,
       `[execution:submit] previewId: ${result.submit.previewId}`,
       `[execution:submit] approvalId: ${result.submit.approvalId ?? "없음"}`,
       `[execution:submit] 모의 제출 건수: ${submittedCount}`,
       `[execution:submit] 저장 위치: ${result.output.latestPath}`,
-      `[execution:submit] 실제 Coinone 주문은 전송하지 않았습니다.`
+      result.submit.adapter === "coinone-live"
+        ? `[execution:submit] coinone-live 어댑터를 사용했습니다. 결과를 꼭 저장 파일에서 확인하세요.`
+        : `[execution:submit] 실제 Coinone 주문은 전송하지 않았습니다.`
     ].join("\n")
   );
   console.log(JSON.stringify(result, null, 2));
