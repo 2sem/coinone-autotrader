@@ -149,6 +149,8 @@ jobs:
   finalize:
     needs: decide
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
