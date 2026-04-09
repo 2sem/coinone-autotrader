@@ -141,6 +141,8 @@ jobs:
           path: artifacts/runtime
 
       - run: npm run build
+      - run: npm run decision:skeleton
+
       - name: Load decision prompt
         run: |
           {
@@ -156,6 +158,7 @@ jobs:
           prompt: ${{ env.OPENCODE_DECISION_PROMPT }}
 
       - run: npm run rule:validate
+      - run: npm run review:skeleton
 
       - name: Load review prompt
         run: |

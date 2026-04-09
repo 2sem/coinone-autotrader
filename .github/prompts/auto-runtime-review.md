@@ -8,14 +8,17 @@ Read these files from the working tree:
 
 Task:
 1. Review the latest decision after deterministic validation.
-2. Decide whether the proposed action should be approved.
-3. Set clear blocked reasons and risk flags when approval should not be granted.
-4. Keep internal review notes in English, but user-facing review summary in Korean.
+2. Open the existing JSON file at `artifacts/runtime/reviews/latest.json`.
+3. Update that JSON so it becomes a valid final runtime review artifact.
+4. Preserve these prefilled fields exactly unless they are obviously invalid: `schemaVersion`, `reviewId`, `decisionId`, `validationId`, `createdAt`.
+5. Replace the placeholder values for `approved`, `blockedReasons`, `riskFlags`, `operatorActionRequired`, `reviewSummaryKo`, and `reviewNotesEn`.
+6. Keep internal review notes in English, but user-facing review summary in Korean.
 
 Output requirement:
-- Write a valid runtime review JSON artifact to `artifacts/runtime/reviews/latest.json`.
-- The file must follow the repository runtime review contract.
-- Overwrite that file only; do not modify unrelated files.
+- Update the existing `artifacts/runtime/reviews/latest.json` file in place.
+- The file must follow the repository runtime review contract exactly.
+- Do not remove required fields.
+- Do not modify unrelated files.
 - Do not create commits, branches, pull requests, comments, or issues.
 
 Additional guidance:
