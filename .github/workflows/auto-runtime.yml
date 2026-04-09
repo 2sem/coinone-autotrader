@@ -1,0 +1,216 @@
+name: Auto Runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      market_data_mode:
+        description: "auto, live, or mock"
+        type: choice
+        options: [auto, live, mock]
+        default: auto
+      selection_mode:
+        description: "allowlist or auto"
+        type: choice
+        options: [allowlist, auto]
+        default: allowlist
+      trade_targets:
+        description: "Comma-separated targets for allowlist mode"
+        type: string
+        default: "USDC"
+  schedule:
+    # Default: every 30 minutes UTC. Adjust as needed.
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: auto-runtime-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_ENV: development
+  MARKET_DATA_MODE: ${{ github.event.inputs.market_data_mode || vars.COINONE_MARKET_DATA_MODE || 'auto' }}
+  SELECTION_MODE: ${{ github.event.inputs.selection_mode || vars.COINONE_SELECTION_MODE || 'allowlist' }}
+  TRADE_TARGETS: ${{ github.event.inputs.trade_targets || vars.COINONE_TRADE_TARGETS || 'USDC' }}
+  AUTO_SELECTION_UNIVERSE: ${{ vars.COINONE_AUTO_SELECTION_UNIVERSE || '' }}
+  EXCLUDED_TARGETS: ${{ vars.COINONE_EXCLUDED_TARGETS || '' }}
+  MAX_SELECTED_ASSETS: ${{ vars.COINONE_MAX_SELECTED_ASSETS || '5' }}
+  RISK_PROFILE: ${{ vars.RISK_PROFILE || 'balanced' }}
+  DRY_RUN: ${{ vars.DRY_RUN || 'true' }}
+  ENABLE_LIVE_TRADING: ${{ vars.ENABLE_LIVE_TRADING || 'false' }}
+  TRADING_KILL_SWITCH: ${{ vars.TRADING_KILL_SWITCH || 'false' }}
+  COOLDOWN_MINUTES: ${{ vars.COOLDOWN_MINUTES || '' }}
+  MAX_ORDER_KRW: ${{ vars.MAX_ORDER_KRW || '' }}
+  MAX_DAILY_BUY_KRW: ${{ vars.MAX_DAILY_BUY_KRW || '' }}
+  MAX_TRADES_PER_DAY: ${{ vars.MAX_TRADES_PER_DAY || '' }}
+  MAX_OPEN_POSITIONS: ${{ vars.MAX_OPEN_POSITIONS || '' }}
+  MAX_PORTFOLIO_EXPOSURE_PCT: ${{ vars.MAX_PORTFOLIO_EXPOSURE_PCT || '' }}
+  COINONE_CLI_PATH: ${{ vars.COINONE_CLI_PATH || '' }}
+  COINONE_CLI_TIMEOUT_MS: ${{ vars.COINONE_CLI_TIMEOUT_MS || '15000' }}
+  COINONE_CLI_BASE_URL: ${{ vars.COINONE_CLI_BASE_URL || '' }}
+  COINONE_ACCESS_TOKEN: ${{ secrets.COINONE_ACCESS_TOKEN || '' }}
+  COINONE_SECRET_KEY: ${{ secrets.COINONE_SECRET_KEY || '' }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || '' }}
+  GITHUB_REPOSITORY: ${{ github.repository }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check coinone CLI
+        run: |
+          if command -v coinone >/dev/null 2>&1; then
+            coinone --version
+          else
+            npm run coinone:install
+          fi
+
+      - run: npm run build
+
+  collect:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check coinone CLI
+        run: |
+          if command -v coinone >/dev/null 2>&1; then
+            coinone --version
+          else
+            npm run coinone:install
+          fi
+
+      - run: npm run build
+      - run: npm run collect:snapshot
+      - run: npm run analyze:market
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-collect-artifacts
+          path: artifacts/runtime
+          if-no-files-found: error
+
+  decide:
+    needs: collect
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check coinone CLI
+        run: |
+          if command -v coinone >/dev/null 2>&1; then
+            coinone --version
+          else
+            npm run coinone:install
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: runtime-collect-artifacts
+          path: artifacts/runtime
+
+      - run: npm run build
+      - run: npm run decision:run
+      - run: npm run rule:validate
+      - run: npm run decision:review
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-reviewed-artifacts
+          path: artifacts/runtime
+          if-no-files-found: error
+
+  finalize:
+    needs: decide
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check coinone CLI
+        run: |
+          if command -v coinone >/dev/null 2>&1; then
+            coinone --version
+          else
+            npm run coinone:install
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: runtime-reviewed-artifacts
+          path: artifacts/runtime
+
+      - run: npm run build
+      - run: npm run log:trade-comment
+      - run: npm run report:daily-refresh
+
+      - id: runtime-status
+        name: Read runtime status
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          review = json.loads(Path('artifacts/runtime/reviews/latest.json').read_text())
+          decision = json.loads(Path('artifacts/runtime/decisions/latest.json').read_text())
+          result = 'trade' if review.get('approved') and decision.get('action') in {'buy', 'sell'} else 'pending'
+          pending_reason = 'none' if result == 'trade' else ('approval-needed' if review.get('operatorActionRequired') else 'hold')
+          print(f"result={result}")
+          print(f"pending_reason={pending_reason}")
+          print("run_status=completed")
+          needs_attention = pending_reason in {'approval-needed', 'balance', 'config', 'market'}
+          print(f"needs_attention={'true' if needs_attention else 'false'}")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: auto-runtime-artifacts
+          path: artifacts/runtime
+          if-no-files-found: error
+
+      - name: Notify Slack when manual attention is needed
+        if: always() && env.SLACK_WEBHOOK_URL != '' && steps.runtime-status.outputs.needs_attention == 'true'
+        run: |
+          python - <<'PY' > /tmp/auto-runtime-summary.md
+          import json
+          from pathlib import Path
+          decision = json.loads(Path('artifacts/runtime/decisions/latest.json').read_text())
+          review = json.loads(Path('artifacts/runtime/reviews/latest.json').read_text())
+          print(f"Auto runtime result: {'trade' if review.get('approved') and decision.get('action') in {'buy', 'sell'} else 'pending'}")
+          print(f"Decision: {decision.get('action')}")
+          print(f"Summary: {decision.get('userSummaryKo')}")
+          print(f"Review: {review.get('reviewSummaryKo')}")
+          PY
+          node scripts/post-slack-notification.mjs "/tmp/auto-runtime-summary.md" "자동 실행에 확인이 필요합니다"
