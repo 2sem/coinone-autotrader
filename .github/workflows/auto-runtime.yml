@@ -22,8 +22,10 @@ on:
     - cron: "*/30 * * * *"
 
 permissions:
-  contents: read
+  contents: write
   issues: write
+  pull-requests: write
+  id-token: write
 
 concurrency:
   group: auto-runtime-${{ github.ref }}
@@ -112,6 +114,9 @@ jobs:
   decide:
     needs: collect
     runs-on: ubuntu-latest
+    env:
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
@@ -136,9 +141,38 @@ jobs:
           path: artifacts/runtime
 
       - run: npm run build
-      - run: npm run decision:run
+      - run: npm run decision:skeleton
+
+      - name: Load decision prompt
+        run: |
+          {
+            echo 'OPENCODE_DECISION_PROMPT<<EOF'
+            cat .github/prompts/auto-runtime-decision.md
+            echo 'EOF'
+          } >> "$GITHUB_ENV"
+
+      - name: OpenCode decision
+        uses: anomalyco/opencode/github@latest
+        with:
+          model: ${{ vars.OPENCODE_MODEL || 'opencode/gpt-5-nano' }}
+          prompt: ${{ env.OPENCODE_DECISION_PROMPT }}
+
       - run: npm run rule:validate
-      - run: npm run decision:review
+      - run: npm run review:skeleton
+
+      - name: Load review prompt
+        run: |
+          {
+            echo 'OPENCODE_REVIEW_PROMPT<<EOF'
+            cat .github/prompts/auto-runtime-review.md
+            echo 'EOF'
+          } >> "$GITHUB_ENV"
+
+      - name: OpenCode review
+        uses: anomalyco/opencode/github@latest
+        with:
+          model: ${{ vars.OPENCODE_MODEL || 'opencode/gpt-5-nano' }}
+          prompt: ${{ env.OPENCODE_REVIEW_PROMPT }}
 
       - uses: actions/upload-artifact@v4
         with:
