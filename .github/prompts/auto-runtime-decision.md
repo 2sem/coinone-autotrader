@@ -22,6 +22,40 @@ Output requirement:
 - Do not modify unrelated files.
 - Do not create commits, branches, pull requests, comments, or issues.
 
+Strict value constraints:
+- `action` must be exactly one of: `"buy"`, `"sell"`, `"hold"`
+- `strategyPreset` must stay exactly one of: `"zero-fee-grid"`, `"low-fee-balance"`, `"standard-net-profit"`
+- `executionPlan.mode` must be exactly one of: `"single"`, `"ladder"`, `"none"`
+- If `action` is `"hold"`, use `executionPlan.mode = "none"`
+- If `action` is `"buy"`, prefer `executionPlan.mode = "ladder"` or `"single"`
+- If `action` is `"sell"`, use `executionPlan.mode = "single"` or `"ladder"`
+- `confidence` must be a JSON number between `0` and `1`
+- `riskNotes` must be an array of strings
+
+Example shape:
+```json
+{
+  "schemaVersion": "1",
+  "decisionId": "keep-existing",
+  "snapshotId": "keep-existing",
+  "analysisId": "keep-existing",
+  "createdAt": "keep-existing",
+  "action": "hold",
+  "target": "USDC",
+  "confidence": 0.62,
+  "strategyPreset": "zero-fee-grid",
+  "estimatedMakerFeeBps": 0,
+  "estimatedTakerFeeBps": 0,
+  "thesis": "cooldown protection",
+  "reasoningEn": "Concise internal reasoning in English.",
+  "userSummaryKo": "사용자에게 보여줄 쉬운 한국어 요약입니다.",
+  "riskNotes": ["Cooldown remains active."],
+  "executionPlan": {
+    "mode": "none"
+  }
+}
+```
+
 Additional guidance:
 - Use split execution planning when actionable.
 - Respect cooldown, balance, and portfolio context.
