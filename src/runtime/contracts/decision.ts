@@ -50,9 +50,12 @@ export function validateRuntimeDecision(value: unknown): RuntimeDecision {
   expectEnum(decision.strategyPreset, ["zero-fee-grid", "low-fee-balance", "standard-net-profit"], "decision.strategyPreset");
   optionalNumber(decision.estimatedMakerFeeBps, "decision.estimatedMakerFeeBps", 0);
   optionalNumber(decision.estimatedTakerFeeBps, "decision.estimatedTakerFeeBps", 0);
-  expectString(decision.thesis, "decision.thesis");
-  expectString(decision.reasoningEn, "decision.reasoningEn");
-  expectString(decision.userSummaryKo, "decision.userSummaryKo");
+  const thesis = expectString(decision.thesis, "decision.thesis");
+  const reasoningEn = expectString(decision.reasoningEn, "decision.reasoningEn");
+  const userSummaryKo = expectString(decision.userSummaryKo, "decision.userSummaryKo");
+  rejectPlaceholder(thesis, "decision.thesis");
+  rejectPlaceholder(reasoningEn, "decision.reasoningEn");
+  rejectPlaceholder(userSummaryKo, "decision.userSummaryKo");
   expectStringArray(decision.riskNotes, "decision.riskNotes");
 
   const executionPlan = expectRecord(decision.executionPlan, "decision.executionPlan");
@@ -181,4 +184,12 @@ function optionalInteger(value: unknown, label: string, minValue: number): numbe
   }
 
   return parsed;
+}
+
+function rejectPlaceholder(value: string, label: string): void {
+  const normalized = value.toLowerCase();
+  const blocked = ["replace-me", "replace this placeholder", "초안"];
+  if (blocked.some((entry) => normalized.includes(entry))) {
+    throw new Error(`${label} must not contain placeholder text.`);
+  }
 }

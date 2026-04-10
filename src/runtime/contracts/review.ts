@@ -49,8 +49,10 @@ export function validateRuntimeReview(value: unknown): RuntimeReview {
   expectStringArray(review.blockedReasons, "review.blockedReasons");
   expectStringArray(review.riskFlags, "review.riskFlags");
   expectBoolean(review.operatorActionRequired, "review.operatorActionRequired");
-  expectString(review.reviewSummaryKo, "review.reviewSummaryKo");
-  expectString(review.reviewNotesEn, "review.reviewNotesEn");
+  const reviewSummaryKo = expectString(review.reviewSummaryKo, "review.reviewSummaryKo");
+  const reviewNotesEn = expectString(review.reviewNotesEn, "review.reviewNotesEn");
+  rejectPlaceholder(reviewSummaryKo, "review.reviewSummaryKo");
+  rejectPlaceholder(reviewNotesEn, "review.reviewNotesEn");
   return review as unknown as RuntimeReview;
 }
 
@@ -92,4 +94,12 @@ function expectLiteral<T extends string>(value: unknown, expected: T, label: str
   }
 
   return expected;
+}
+
+function rejectPlaceholder(value: string, label: string): void {
+  const normalized = value.toLowerCase();
+  const blocked = ["replace this placeholder", "초안"];
+  if (blocked.some((entry) => normalized.includes(entry))) {
+    throw new Error(`${label} must not contain placeholder text.`);
+  }
 }

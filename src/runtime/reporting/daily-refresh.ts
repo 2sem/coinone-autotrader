@@ -108,10 +108,18 @@ function parseTradeComment(body: string): ParsedComment | undefined {
     heading: lines[0].replace(/^###\s*/, "").trim(),
     target: getValue("- 코인: "),
     action: getValue("- 판단: "),
-    reason: getValue("- 이유: "),
+    reason: sanitizeCommentValue(getValue("- 이유: ")),
     review: getValue("- 검토 결과: "),
-    note: getValue("- 다음 메모: ")
+    note: sanitizeCommentValue(getValue("- 다음 메모: "))
   };
+}
+
+function sanitizeCommentValue(value: string): string {
+  if (value.includes("초안") || value.toLowerCase().includes("replace this placeholder")) {
+    return "AI 판단 결과가 완전히 채워지지 않아 보수적으로 보류했습니다.";
+  }
+
+  return value;
 }
 
 function formatDay(date: Date): string {
