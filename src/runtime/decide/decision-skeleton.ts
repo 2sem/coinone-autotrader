@@ -24,9 +24,9 @@ export function createRuntimeDecisionSkeleton(snapshot: RuntimeSnapshot, analysi
     strategyPreset: primaryFeeProfile?.preset ?? "standard-net-profit",
     estimatedMakerFeeBps: primaryFeeProfile?.makerFeeBps,
     estimatedTakerFeeBps: primaryFeeProfile?.takerFeeBps,
-    thesis: "replace-me",
-    reasoningEn: "Replace this placeholder with concise internal reasoning.",
-    userSummaryKo: "이 판단 초안은 아직 AI 검토 전입니다.",
+    thesis: "hold until AI finalizes the trading thesis",
+    reasoningEn: "AI should replace this default reasoning with a concise final explanation based on the snapshot and analysis.",
+    userSummaryKo: "AI가 최종 판단을 채우기 전까지는 보수적으로 보류합니다.",
     riskNotes: analysis.risks,
     executionPlan: {
       mode: "none"

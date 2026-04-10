@@ -20,8 +20,8 @@ export function createRuntimeReviewSkeleton(decision: RuntimeDecision, validatio
     blockedReasons: validation.blockedReasons,
     riskFlags: validation.warnings,
     operatorActionRequired: validation.blockedReasons.length > 0,
-    reviewSummaryKo: "이 검토 초안은 아직 AI 검토 전입니다.",
-    reviewNotesEn: "Replace this placeholder with concise review notes."
+    reviewSummaryKo: "AI가 최종 검토를 채우기 전까지는 보수적으로 보류합니다.",
+    reviewNotesEn: "AI should replace this default review note with concise final review reasoning."
   });
 }
 
