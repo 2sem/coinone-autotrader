@@ -27,3 +27,4 @@ Additional guidance:
 - Preserve deterministic script validation as the source of truth for hard rule failures.
 - If validation passed and the decision stays within small, bounded risk, prefer approval over unnecessary blocking.
 - Only set `approved` to `false` when you can point to a specific concrete risk or validation problem.
+- If the final outcome is effectively a hold/pending decision, `reviewSummaryKo` must name the concrete reason rather than using generic caution-only wording.

@@ -118,7 +118,11 @@ function parseTradeComment(body: string): ParsedComment | undefined {
 }
 
 function sanitizeCommentValue(value: string): string {
-  if (value.includes("초안") || value.toLowerCase().includes("replace this placeholder")) {
+  if (
+    value.includes("초안") ||
+    value.toLowerCase().includes("replace this placeholder") ||
+    value.includes("기본 안전 판단상 보류")
+  ) {
     return "AI 판단 결과가 완전히 채워지지 않아 보수적으로 보류했습니다.";
   }
 
