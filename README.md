@@ -34,7 +34,7 @@ npm run coinone:install
 npm run coinone:doctor
 ```
 
-`npm run coinone:install` clones `2sem/coinone-api-cli` into `.vendor/coinone-api-cli`, checks out pinned commit `957f6733162021d0cfe12a5cdab61daafc577f21` (latest upstream `main` with the live order fix for issue #9), installs its dependencies, and builds the local CLI entrypoint used by this project.
+`npm run coinone:install` clones `2sem/coinone-api-cli` into `.vendor/coinone-api-cli`, checks out pinned commit `d65495cfdb9e1ca1ae6dc5e401497e27f240c958` (latest upstream `main` including the fee-response improvements used by the runtime workflow), installs its dependencies, and builds the local CLI entrypoint used by this project.
 
 This explicit installation contract is used instead of an npm/git package dependency because the upstream repository currently does not publish build artifacts in a directly consumable package form.
 
