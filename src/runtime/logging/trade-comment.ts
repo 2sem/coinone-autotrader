@@ -24,7 +24,7 @@ export function buildTradeComment(input: {
     `### ${formatKstTimestamp(now)}`,
     `- 코인: ${input.decision.target ?? "없음"}`,
     `- 판단: ${localizeAction(input.decision.action)}`,
-    `- 이유: ${input.decision.userSummaryKo}`,
+    `- 이유: ${resolveUserFacingReason(input.decision, input.review)}`,
     `- 검토 결과: ${input.review.approved ? "승인" : "보류"}`,
     `- 상태: ${summarizeRunResult(input.decision, input.review)}`,
     `- 실행 상태: 아직 주문하지 않음`,
@@ -42,7 +42,7 @@ export function buildTradeComment(input: {
     issueNumber: input.issue.issueNumber,
     issueUrl: input.issue.issueUrl,
     bodyMarkdown,
-    userSummaryKo: input.decision.userSummaryKo
+    userSummaryKo: resolveUserFacingReason(input.decision, input.review)
   });
 }
 
@@ -140,6 +140,56 @@ function summarizeRunResult(decision: RuntimeDecision, review: RuntimeReview): s
   }
 
   return "trade";
+}
+
+function resolveUserFacingReason(decision: RuntimeDecision, review: RuntimeReview): string {
+  if (!isGenericHoldReason(decision.userSummaryKo)) {
+    return decision.userSummaryKo;
+  }
+
+  const cooldownNote = decision.riskNotes.find((note) => note.toLowerCase().includes("cooldown"));
+  if (cooldownNote) {
+    const match = cooldownNote.match(/(\d+) more minutes/i);
+    if (match) {
+      return `${decision.target ?? "선택 코인"}은 최근 체결 이후 쿨다운이 ${match[1]}분 남아 있어 이번에는 기다립니다.`;
+    }
+
+    return `${decision.target ?? "선택 코인"}은 최근 체결 이후 쿨다운 구간에 있어 이번에는 기다립니다.`;
+  }
+
+  if (!review.approved) {
+    if (review.blockedReasons.length > 0) {
+      return `검토 단계에서 ${translateBlockedReason(review.blockedReasons[0])} 사유로 보류했습니다.`;
+    }
+
+    return "검토 단계에서 추가 확인이 필요해 이번에는 보류했습니다.";
+  }
+
+  if (decision.action === "hold") {
+    return `${decision.target ?? "선택 코인"}은 현재 조건에서 뚜렷한 진입 근거가 부족해 이번에는 기다립니다.`;
+  }
+
+  return decision.userSummaryKo;
+}
+
+function isGenericHoldReason(value: string): boolean {
+  return value.includes("기본 안전 판단상 보류") || value.includes("AI가 최종 판단") || value.includes("초안") || value.includes("보수적으로 보류");
+}
+
+function translateBlockedReason(reason: string): string {
+  if (reason.toLowerCase().includes("placeholder")) {
+    return "AI 판단 내용이 충분히 채워지지 않은";
+  }
+
+  if (reason.toLowerCase().includes("confidence")) {
+    return "확신도가 충분하지 않은";
+  }
+
+  if (reason.toLowerCase().includes("execution plan")) {
+    return "실행 계획이 불완전한";
+  }
+
+  return "안전 규칙을 다시 확인해야 하는";
 }
 
 function inferPendingReason(decision: RuntimeDecision, review: RuntimeReview): string {
