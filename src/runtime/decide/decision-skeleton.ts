@@ -26,7 +26,7 @@ export function createRuntimeDecisionSkeleton(snapshot: RuntimeSnapshot, analysi
     estimatedTakerFeeBps: primaryFeeProfile?.takerFeeBps,
     thesis: "hold until AI finalizes the trading thesis",
     reasoningEn: "AI should replace this default reasoning with a concise final explanation based on the snapshot and analysis.",
-    userSummaryKo: "AI가 최종 판단을 채우기 전까지는 보수적으로 보류합니다.",
+    userSummaryKo: `${primaryCandidate?.target ?? "선택 코인"}은 현재 기본 안전 판단상 보류 상태에서 시작합니다.`,
     riskNotes: analysis.risks,
     executionPlan: {
       mode: "none"
