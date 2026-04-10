@@ -26,6 +26,7 @@ export function buildTradeComment(input: {
     `- 판단: ${localizeAction(input.decision.action)}`,
     `- 이유: ${input.decision.userSummaryKo}`,
     `- 검토 결과: ${input.review.approved ? "승인" : "보류"}`,
+    `- 상태: ${summarizeRunResult(input.decision, input.review)}`,
     `- 실행 상태: 아직 주문하지 않음`,
     `- 다음 메모: ${summarizeExecutionPlan(input.decision)}`
   ].join("\n");
@@ -127,6 +128,34 @@ function summarizeExecutionPlan(decision: RuntimeDecision): string {
   }
 
   return "추가 실행 계획 없음";
+}
+
+function summarizeRunResult(decision: RuntimeDecision, review: RuntimeReview): string {
+  if (!review.approved) {
+    return `pending (${inferPendingReason(decision, review)})`;
+  }
+
+  if (decision.action === "hold") {
+    return `pending (${inferPendingReason(decision, review)})`;
+  }
+
+  return "trade";
+}
+
+function inferPendingReason(decision: RuntimeDecision, review: RuntimeReview): string {
+  if (!review.approved && review.operatorActionRequired) {
+    return "review-blocked";
+  }
+
+  if (decision.userSummaryKo.includes("쿨다운") || decision.userSummaryKo.includes("기다립니다")) {
+    return "cooldown";
+  }
+
+  if (decision.userSummaryKo.includes("잔고")) {
+    return "balance";
+  }
+
+  return "hold";
 }
 
 function formatKstTimestamp(date: Date): string {

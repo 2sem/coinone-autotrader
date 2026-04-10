@@ -68,7 +68,7 @@ function buildDailyRefreshBody(date: Date, comments: string[]): string {
     "## 요약",
     `- 날짜: ${formatDay(date)}`,
     `- 총 실행 기록: ${parsed.length}건`,
-    latest ? `- 최근 판단: ${latest.target} ${latest.action}` : "- 최근 판단: 아직 없음",
+    latest ? `- 최근 판단: ${latest.target} ${latest.action} (${latest.status})` : "- 최근 판단: 아직 없음",
     "",
     "## 누적 요약",
     `- 매수 ${buys}건 / 매도 ${sells}건 / 보류 ${holds}건`,
@@ -80,6 +80,7 @@ function buildDailyRefreshBody(date: Date, comments: string[]): string {
           `- 시각: ${latest.heading}`,
           `- 코인: ${latest.target}`,
           `- 판단: ${latest.action}`,
+          `- 상태: ${latest.status}`,
           `- 이유: ${latest.reason}`,
           `- 검토 결과: ${latest.review}`
         ]
@@ -91,6 +92,7 @@ interface ParsedComment {
   heading: string;
   target: string;
   action: string;
+  status: string;
   reason: string;
   review: string;
   note: string;
@@ -108,6 +110,7 @@ function parseTradeComment(body: string): ParsedComment | undefined {
     heading: lines[0].replace(/^###\s*/, "").trim(),
     target: getValue("- 코인: "),
     action: getValue("- 판단: "),
+    status: sanitizeCommentValue(getValue("- 상태: ")) || inferStatusFromLegacy(getValue("- 판단: "), getValue("- 검토 결과: "), getValue("- 이유: ")),
     reason: sanitizeCommentValue(getValue("- 이유: ")),
     review: getValue("- 검토 결과: "),
     note: sanitizeCommentValue(getValue("- 다음 메모: "))
@@ -120,6 +123,18 @@ function sanitizeCommentValue(value: string): string {
   }
 
   return value;
+}
+
+function inferStatusFromLegacy(action: string, review: string, reason: string): string {
+  if (review === "보류") {
+    return reason.includes("쿨다운") ? "pending (cooldown)" : "pending (review-blocked)";
+  }
+
+  if (action === "보류") {
+    return reason.includes("쿨다운") ? "pending (cooldown)" : "pending (hold)";
+  }
+
+  return "trade";
 }
 
 function formatDay(date: Date): string {

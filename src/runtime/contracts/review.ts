@@ -98,7 +98,11 @@ function expectLiteral<T extends string>(value: unknown, expected: T, label: str
 
 function rejectPlaceholder(value: string, label: string): void {
   const normalized = value.toLowerCase();
-  const blocked = ["replace this placeholder", "초안"];
+  const blocked = [
+    "replace this placeholder",
+    "초안",
+    "ai가 최종 검토를 채우기 전까지는 보수적으로 보류합니다"
+  ];
   if (blocked.some((entry) => normalized.includes(entry))) {
     throw new Error(`${label} must not contain placeholder text.`);
   }
