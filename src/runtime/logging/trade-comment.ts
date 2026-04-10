@@ -117,7 +117,9 @@ function localizeAction(action: RuntimeDecision["action"]): string {
 
 function summarizeExecutionPlan(decision: RuntimeDecision): string {
   if (decision.executionPlan.mode === "ladder") {
-    return `분할 ${decision.executionPlan.splitCount ?? 0}단 계획`;
+    return decision.executionPlan.splitCount && decision.executionPlan.splitCount > 0
+      ? `분할 ${decision.executionPlan.splitCount}단 계획`
+      : "분할 진입 계획";
   }
 
   if (decision.executionPlan.mode === "single") {

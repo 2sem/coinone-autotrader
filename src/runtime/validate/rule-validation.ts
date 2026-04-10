@@ -12,7 +12,14 @@ export function runRuntimeRuleValidation(snapshot: RuntimeSnapshot, decision: Ru
   const createdAt = new Date().toISOString();
   const blockedReasons: string[] = [];
   const warnings: string[] = [];
-  const checkedRules = ["target-selected", "account-configured", "execution-plan-shape", "order-value-cap", "live-submit-still-blocked"];
+  const checkedRules = [
+    "target-selected",
+    "account-configured",
+    "execution-plan-shape",
+    "decision-placeholders-cleared",
+    "order-value-cap",
+    "live-submit-still-blocked"
+  ];
 
   if (decision.action !== "hold" && decision.target && !snapshot.market.selectedTargets.includes(decision.target)) {
     blockedReasons.push("Decision target is not part of the current selected targets.");
@@ -38,6 +45,14 @@ export function runRuntimeRuleValidation(snapshot: RuntimeSnapshot, decision: Ru
     if ((decision.executionPlan.entries?.length ?? 0) === 0) {
       warnings.push("Ladder buy plan has no entries; execution would still stay blocked later.");
     }
+  }
+
+  if (decision.thesis === "replace-me" || decision.reasoningEn.includes("Replace this placeholder") || decision.userSummaryKo.includes("초안")) {
+    blockedReasons.push("Decision still contains placeholder text and must be completed before review can approve it.");
+  }
+
+  if (decision.executionPlan.mode === "ladder" && (!decision.executionPlan.splitCount || decision.executionPlan.splitCount <= 0)) {
+    blockedReasons.push("Ladder execution plans must include a positive splitCount.");
   }
 
   if (decision.action === "sell" && decision.executionPlan.mode === "none") {
