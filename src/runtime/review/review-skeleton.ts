@@ -17,7 +17,7 @@ export function createRuntimeReviewSkeleton(decision: RuntimeDecision, validatio
     validationId: validation.validationId,
     createdAt,
     approved: false,
-    blockedReasons: validation.blockedReasons,
+    blockedReasons: validation.blockedReasons.length > 0 ? validation.blockedReasons : ["Awaiting final AI review completion."],
     riskFlags: validation.warnings,
     operatorActionRequired: validation.blockedReasons.length > 0,
     reviewSummaryKo: "기본 검토 단계에서는 보수적으로 승인 전 상태에서 시작합니다.",
