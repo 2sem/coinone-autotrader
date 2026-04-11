@@ -29,5 +29,8 @@ Additional guidance:
 - If the final outcome is effectively a hold/pending decision, `reviewSummaryKo` must name the concrete reason rather than using generic caution-only wording.
 - If the strategy preset is `zero-fee-grid`, the account is flat, validation passed, and there is no explicit cooldown or exposure issue, prefer approval instead of blocking.
 - If you block a trade, `blockedReasons` must contain at least one concrete reason such as `market uncertainty`, `insufficient edge`, `exposure concern`, `cooldown`, or `execution plan weakness`.
+- For a `buy` decision with `strategyPreset = "zero-fee-grid"`, `portfolioState = "flat"`, and a valid `ladder` plan, approval should be the default unless there is a strong concrete reason to block it.
+- Do not block only because the market is range-bound; range conditions are compatible with zero-fee-grid entries.
+- If you reject, explicitly name what is unsafe right now. Vague caution is not enough.
 
 Keep the response concise. Do not restate the full decision context if not needed.
