@@ -8,11 +8,10 @@ Read these files from the working tree:
 
 Task:
 1. Review the latest decision after deterministic validation.
-2. Open the existing JSON file at `artifacts/runtime/reviews/latest.json`.
-3. Update that JSON so it becomes a valid final runtime review artifact.
-4. Preserve these prefilled fields exactly unless they are obviously invalid: `schemaVersion`, `reviewId`, `decisionId`, `validationId`, `createdAt`.
-5. Replace the placeholder values for `approved`, `blockedReasons`, `riskFlags`, `operatorActionRequired`, `reviewSummaryKo`, and `reviewNotesEn`.
-6. Keep internal review notes in English, but user-facing review summary in Korean.
+2. Update `artifacts/runtime/reviews/latest.json` in place.
+3. Preserve these prefilled fields exactly unless they are obviously invalid: `schemaVersion`, `reviewId`, `decisionId`, `validationId`, `createdAt`.
+4. Fill only these fields: `approved`, `blockedReasons`, `riskFlags`, `operatorActionRequired`, `reviewSummaryKo`, `reviewNotesEn`.
+5. Keep internal review notes in English, but user-facing review summary in Korean.
 
 Output requirement:
 - Update the existing `artifacts/runtime/reviews/latest.json` file in place.
@@ -28,3 +27,7 @@ Additional guidance:
 - If validation passed and the decision stays within small, bounded risk, prefer approval over unnecessary blocking.
 - Only set `approved` to `false` when you can point to a specific concrete risk or validation problem.
 - If the final outcome is effectively a hold/pending decision, `reviewSummaryKo` must name the concrete reason rather than using generic caution-only wording.
+- If the strategy preset is `zero-fee-grid`, the account is flat, validation passed, and there is no explicit cooldown or exposure issue, prefer approval instead of blocking.
+- If you block a trade, `blockedReasons` must contain at least one concrete reason such as `market uncertainty`, `insufficient edge`, `exposure concern`, `cooldown`, or `execution plan weakness`.
+
+Keep the response concise. Do not restate the full decision context if not needed.

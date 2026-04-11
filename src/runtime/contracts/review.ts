@@ -45,14 +45,17 @@ export function validateRuntimeReview(value: unknown): RuntimeReview {
   expectString(review.decisionId, "review.decisionId");
   expectString(review.validationId, "review.validationId");
   expectString(review.createdAt, "review.createdAt");
-  expectBoolean(review.approved, "review.approved");
-  expectStringArray(review.blockedReasons, "review.blockedReasons");
+  const approved = expectBoolean(review.approved, "review.approved");
+  const blockedReasons = expectStringArray(review.blockedReasons, "review.blockedReasons");
   expectStringArray(review.riskFlags, "review.riskFlags");
   expectBoolean(review.operatorActionRequired, "review.operatorActionRequired");
   const reviewSummaryKo = expectString(review.reviewSummaryKo, "review.reviewSummaryKo");
   const reviewNotesEn = expectString(review.reviewNotesEn, "review.reviewNotesEn");
   rejectPlaceholder(reviewSummaryKo, "review.reviewSummaryKo");
   rejectPlaceholder(reviewNotesEn, "review.reviewNotesEn");
+  if (approved === false && blockedReasons.length === 0) {
+    throw new Error("review.blockedReasons must contain at least one concrete reason when approved=false.");
+  }
   return review as unknown as RuntimeReview;
 }
 
