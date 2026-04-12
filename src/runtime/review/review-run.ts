@@ -64,7 +64,7 @@ export async function writeRuntimeReview(review: RuntimeReview, outputDir = DEFA
 export async function readLatestRuntimeReview(outputDir = DEFAULT_OUTPUT_DIR): Promise<RuntimeReview> {
   const latestPath = path.resolve(outputDir, "reviews", "latest.json");
   const raw = await readFile(latestPath, "utf8");
-  return validateRuntimeReview(JSON.parse(raw));
+  return validateRuntimeReview(normalizeReviewArtifact(JSON.parse(raw)));
 }
 
 export async function readLatestReviewInputs(outputDir = DEFAULT_OUTPUT_DIR): Promise<{
@@ -86,6 +86,22 @@ export async function readLatestReviewInputs(outputDir = DEFAULT_OUTPUT_DIR): Pr
     decision: validateRuntimeDecision(JSON.parse(decisionRaw)),
     validation: validateRuntimeRuleValidation(JSON.parse(validationRaw))
   };
+}
+
+function normalizeReviewArtifact(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return value;
+  }
+
+  const review = value as Record<string, unknown>;
+  const approved = review.approved === true;
+  const blockedReasons = Array.isArray(review.blockedReasons) ? review.blockedReasons : [];
+
+  if (!approved && blockedReasons.length === 0) {
+    review.blockedReasons = ["review output did not include a concrete blocked reason"];
+  }
+
+  return review;
 }
 
 async function writeJson(filePath: string, value: unknown): Promise<void> {
