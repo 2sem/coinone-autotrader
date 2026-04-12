@@ -25,6 +25,7 @@ Additional guidance:
 - If the decision is uncertain, prefer caution.
 - Preserve deterministic script validation as the source of truth for hard rule failures.
 - If validation passed and the decision stays within small, bounded risk, prefer approval over unnecessary blocking.
+- Treat the prefilled `approved` value as the default safety recommendation from deterministic validation. Keep it unless you have a clear reason to change it.
 - Only set `approved` to `false` when you can point to a specific concrete risk or validation problem.
 - If the final outcome is effectively a hold/pending decision, `reviewSummaryKo` must name the concrete reason rather than using generic caution-only wording.
 - If the strategy preset is `zero-fee-grid`, the account is flat, validation passed, and there is no explicit cooldown or exposure issue, prefer approval instead of blocking.

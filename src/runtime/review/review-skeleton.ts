@@ -9,6 +9,7 @@ const DEFAULT_OUTPUT_DIR = "artifacts/runtime";
 
 export function createRuntimeReviewSkeleton(decision: RuntimeDecision, validation: RuntimeRuleValidation): RuntimeReview {
   const createdAt = new Date().toISOString();
+  const approvedByDefault = validation.passed;
 
   return validateRuntimeReview({
     schemaVersion: "1",
@@ -16,12 +17,16 @@ export function createRuntimeReviewSkeleton(decision: RuntimeDecision, validatio
     decisionId: decision.decisionId,
     validationId: validation.validationId,
     createdAt,
-    approved: false,
-    blockedReasons: validation.blockedReasons.length > 0 ? validation.blockedReasons : ["Awaiting final AI review completion."],
+    approved: approvedByDefault,
+    blockedReasons: approvedByDefault ? [] : validation.blockedReasons.length > 0 ? validation.blockedReasons : ["Awaiting final AI review completion."],
     riskFlags: validation.warnings,
-    operatorActionRequired: validation.blockedReasons.length > 0,
-    reviewSummaryKo: "기본 검토 단계에서는 보수적으로 승인 전 상태에서 시작합니다.",
-    reviewNotesEn: "AI should replace this default review note with concise final review reasoning."
+    operatorActionRequired: !approvedByDefault && validation.blockedReasons.length > 0,
+    reviewSummaryKo: approvedByDefault
+      ? "기본 검토 단계에서는 현재 조건을 통과한 상태에서 시작합니다."
+      : "기본 검토 단계에서는 보수적으로 승인 전 상태에서 시작합니다.",
+    reviewNotesEn: approvedByDefault
+      ? "AI should confirm or tighten this review only if there is a concrete safety reason."
+      : "AI should replace this default review note with concise final review reasoning."
   });
 }
 
