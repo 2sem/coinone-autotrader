@@ -32,5 +32,9 @@ Additional guidance:
 - For a `buy` decision with `strategyPreset = "zero-fee-grid"`, `portfolioState = "flat"`, and a valid `ladder` plan, approval should be the default unless there is a strong concrete reason to block it.
 - Do not block only because the market is range-bound; range conditions are compatible with zero-fee-grid entries.
 - If you reject, explicitly name what is unsafe right now. Vague caution is not enough.
+- For this repository, zero-fee grid entries are an intended primary strategy, not an edge case.
+- If all hard validation passed and no cooldown/exposure/balance/config issue exists, approve the trade candidate even when the edge is only moderate.
+- Range-bound market structure should increase confidence for zero-fee-grid entries rather than reduce it.
+- Only reject a zero-fee-grid entry when you can clearly explain why entering now is unsafe, not merely imperfect.
 
 Keep the response concise. Do not restate the full decision context if not needed.
