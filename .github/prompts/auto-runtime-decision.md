@@ -65,3 +65,12 @@ Additional guidance:
 - For this repository, `zero-fee-grid` on `USDC` is a preferred entry style when the portfolio is flat, the market is range-like, and no cooldown or exposure blocker exists.
 - In that setup, prefer `buy` with a bounded ladder plan rather than `hold`.
 - Only choose `hold` when you can point to a concrete blocker such as cooldown, insufficient balance, weak edge, market uncertainty, or risk constraints.
+- If `action` is `"buy"` and `strategyPreset` is `"zero-fee-grid"`, you must produce a complete `ladder` execution plan.
+- A complete ladder plan means:
+  - `executionPlan.mode = "ladder"`
+  - `executionPlan.splitCount` is a positive integer
+  - `executionPlan.totalOrderValueKrw` is a positive number
+  - `executionPlan.entries` contains at least one entry
+  - every entry has both `priceOffsetPct` and `valueKrw`
+- Do not return a `buy` with `executionPlan.mode = "none"`.
+- For zero-fee-grid buys, prefer 3 to 5 ladder entries with bounded total size rather than a vague buy recommendation.
