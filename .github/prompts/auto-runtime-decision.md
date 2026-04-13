@@ -62,3 +62,6 @@ Additional guidance:
 - If the selected target is zero-fee and the preset is `zero-fee-grid`, that can justify a tighter entry style, but only if risk remains acceptable.
 - If `action` is `"hold"`, the `userSummaryKo` must include at least one concrete reason such as cooldown, balance, fee edge, market uncertainty, review risk, or exposure limit.
 - Generic wording like "보수적으로 보류합니다" without a specific reason is not acceptable.
+- For this repository, `zero-fee-grid` on `USDC` is a preferred entry style when the portfolio is flat, the market is range-like, and no cooldown or exposure blocker exists.
+- In that setup, prefer `buy` with a bounded ladder plan rather than `hold`.
+- Only choose `hold` when you can point to a concrete blocker such as cooldown, insufficient balance, weak edge, market uncertainty, or risk constraints.
