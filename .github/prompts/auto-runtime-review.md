@@ -37,5 +37,7 @@ Additional guidance:
 - If all hard validation passed and no cooldown/exposure/balance/config issue exists, approve the trade candidate even when the edge is only moderate.
 - Range-bound market structure should increase confidence for zero-fee-grid entries rather than reduce it.
 - Only reject a zero-fee-grid entry when you can clearly explain why entering now is unsafe, not merely imperfect.
+- When `approved` is `false`, make sure `blockedReasons` contains at least one short, concrete machine-readable reason such as `market uncertainty`, `insufficient edge`, `exposure concern`, `cooldown`, `balance constraint`, or `execution plan weakness`.
+- If none of those concrete blockers apply, keep `approved = true`.
 
 Keep the response concise. Do not restate the full decision context if not needed.
